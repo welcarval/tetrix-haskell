@@ -1,29 +1,27 @@
 module Main (main) where
 import Graphics.Gloss
-import Graphics.Gloss.Interface.Pure.Simulate
+import Graphics.Gloss.Interface.Pure.Game
 
 windowDisplay :: Display
-windowDisplay = InWindow "Tetrix" (200, 200) (500, 200)
+windowDisplay = InWindow "Tetrix" (400, 600) (800, 200)
 
-type Model = (Float, Float)
+type World = Float
 
 main :: IO ()
-main = simulate 
-    windowDisplay 
-    white 
-    simulationRate
-    initialModel
-    drawingFunc
-    updateFunc
-    where
-        simulationRate :: Int
-        simulationRate = 20
+main = play
+    windowDisplay
+    black
+    60
+    0.0
+    render
+    handleEvent
+    step
 
-        initialModel :: Model
-        initialModel = (0, 0)
+render :: World -> Picture
+render world = translate 0 (world - 10) $ color (makeColorI 10 178 10 200) $ rectangleSolid 20 20
 
-        drawingFunc :: Model -> Picture
-        drawingFunc (theta, _) = Line [(0, 0), (50 * cos theta, 50 * sin theta)]
+handleEvent :: Event -> World -> World
+handleEvent _ world = world
 
-        updateFunc :: ViewPort -> Float -> Model -> Model
-        updateFunc _ dt (theta, dtheta) = (theta + dt * dtheta, dtheta - dt * (cos theta))
+step :: Float -> World -> World
+step dt world = if dt `mod` 60.0 == 0 && world > -280 then world - 20 else world
