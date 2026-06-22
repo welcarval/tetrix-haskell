@@ -20,7 +20,7 @@ executable tetrix-haskell
   main-is:             Main.hs
   other-modules:       TetrixPiece
   default-language:    Haskell2010
-  build-depends:       base >= 4.7 && < 5, gloss
+  build-depends:       base >= 4.7 && < 5, gloss, random
   ghc-options:         -Wall
                        -Wcompat
                        -Widentities
