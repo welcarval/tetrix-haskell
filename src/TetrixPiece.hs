@@ -1,5 +1,8 @@
 module TetrixPiece (
     createPiece,
+    TetrixPiece,
+    Shape(NoShape),
+    setRandomShape
 ) where
 
 import System.Random
@@ -41,7 +44,7 @@ setRandomShape piece gen = (setShape piece (toEnum randomNumber), newGen)
                            where
                                 randomNumber :: Int
                                 newGen :: StdGen
-                                (randomNumber, newGen) = randomR (0, 7) gen
+                                (randomNumber, newGen) = randomR (1, 7) gen
 
 x :: TetrixPiece -> Int -> Int
 x piece index = _coords piece !! index !! 0
