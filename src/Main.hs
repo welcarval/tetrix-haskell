@@ -10,8 +10,9 @@ data Piece = Piece { _piece :: Picture, posX :: Float, posY :: Float }
 data Board = Board { border :: [Picture], pieces :: [Piece]}
 
 data GameState = GameState {
-    stepAcc :: Float,
-    _board :: Board
+    _stepAcc :: Float,
+    _board :: Board,
+    _posY :: Float
 }
 
 board :: Board
@@ -29,18 +30,18 @@ main = play
     windowDisplay
     black
     60
-    GameState {stepAcc=0, posY=0, _board = board}
+    GameState {_stepAcc=0, _posY=0, _board = board}
     render
     handleEvent
     step
 
 render :: GameState -> Picture
-render state = translate 0 (posY state - 10) $ board
+render state = translate 0 (_posY state - 10) $ rectangleSolid 50 50
 
 handleEvent :: Event -> GameState -> GameState
 handleEvent _ state = state
 
 step :: Float -> GameState -> GameState 
-step _ state = if stepAcc state == 60 && posY state > -280 
-               then state { stepAcc = 0, posY = posY state - 20 } 
-               else state { stepAcc = stepAcc state + 1 }
+step _ state = if _stepAcc state == 60 && _posY state > -280 
+               then state { _stepAcc = 0, _posY = _posY state - 20 } 
+               else state { _stepAcc = _stepAcc state + 1 }

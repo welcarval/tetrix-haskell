@@ -1,4 +1,4 @@
-module Coord (
+module TetrixPiece (
     createPiece,
 ) where
 
