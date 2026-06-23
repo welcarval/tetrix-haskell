@@ -1,8 +1,16 @@
 module TetrixPiece (
     createPiece,
     TetrixPiece,
+    _shape,
     Shape(NoShape),
-    setRandomShape
+    setRandomShape,
+    setShape,
+    x,
+    y,
+    maxX,
+    maxY,
+    minX,
+    minY
 ) where
 
 import System.Random
