@@ -10,7 +10,9 @@ module TetrixPiece (
     maxX,
     maxY,
     minX,
-    minY
+    minY,
+    rotateRight,
+    rotateLeft
 ) where
 
 import System.Random
@@ -39,7 +41,7 @@ data Shape = NoShape | ZShape | SShape | LineShape | TShape | SquareShape | LSha
 data TetrixPiece = TetrixPiece { _coords :: [[Int]], _shape :: Shape}
 
 createPiece :: TetrixPiece
-createPiece = TetrixPiece {_coords = coordsTable !! (fromEnum NoShape), _shape= NoShape}
+createPiece = TetrixPiece {_coords = coordsTable !! (fromEnum NoShape), _shape = NoShape}
 
 getShape :: TetrixPiece -> Shape
 getShape piece = _shape piece
