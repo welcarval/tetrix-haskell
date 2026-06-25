@@ -348,7 +348,7 @@ removeFullLines board = finalBoard
                 then b {
                     _numLinesRemoved = _numLinesRemoved b + nfl,
                     _score = _score b + 10 * nfl,
-                    _timer = (_timer b) { _final = 500 },
+                    _timer = (_timer b) { _final = 60, _actual = 0 },
                     _isWaitingAfterLine = True,
                     _curPiece = setShape (_curPiece b) NoShape
                 }
@@ -356,12 +356,12 @@ removeFullLines board = finalBoard
                     b
 
         columnList :: [Int]
-        columnList = [0 .. round boardWidth]
+        columnList = [0 .. round boardWidth - 1]
 
-        reverseRowList :: [Int]
-        reverseRowList = reverse [0.. round boardHeight - 1]
+        rowList :: [Int]
+        rowList = reverse [0.. round boardHeight - 1]
 
-        (b, nfl) = processRows board 0 reverseRowList
+        (b, nfl) = processRows board 0 rowList
 
         processRows :: TetrixBoard -> Int -> [Int] -> (TetrixBoard, Int)
         processRows tb numFullLines []         = (tb, numFullLines)
@@ -383,22 +383,26 @@ removeFullLines board = finalBoard
 
                 newBoard = 
                     if rowIsFull 
-                        then clearRow (updateRow tb row columnList) row columnList 
+                        then clearRow (updateRows tb [row..round boardHeight - 2]) (round boardHeight - 1) columnList 
                         else tb
 
-        clearRow :: TetrixBoard -> Int -> [Int] -> TetrixBoard
-        clearRow board1 _ [] = board1
-        clearRow board1 yCoord (xCoord:xs) = clearRow nextBoard yCoord xs
-            where
-                nextBoard = setShapeAt board1 xCoord yCoord NoShape
-
-        updateRow :: TetrixBoard -> Int -> [Int] -> TetrixBoard
-        updateRow board1 _ [] = board1
-        updateRow board1 yCoord (xCoord:xs) = updateRow nextBoard yCoord xs 
-            where
-                nextBoard = setShapeAt board1 xCoord yCoord upperShape 
+                clearRow :: TetrixBoard -> Int -> [Int] -> TetrixBoard
+                clearRow board1 _ [] = board1
+                clearRow board1 yCoord (xCoord:xs) = clearRow nextBoard yCoord xs
                     where
-                        upperShape = shapeAt board1 xCoord (yCoord + 1)
+                        nextBoard = setShapeAt board1 xCoord yCoord NoShape
+
+                updateRows :: TetrixBoard -> [Int] -> TetrixBoard
+                updateRows b0 []     = b0
+                updateRows b0 (r:rs) = updateRows (updateRow b0 r columnList) rs 
+
+                updateRow :: TetrixBoard -> Int -> [Int] -> TetrixBoard
+                updateRow board1 _ [] = board1
+                updateRow board1 yCoord (xCoord:xs) = updateRow nextBoard yCoord xs 
+                    where
+                        nextBoard = setShapeAt board1 xCoord yCoord upperShape 
+                            where
+                                upperShape = shapeAt board1 xCoord (yCoord + 1)
 
 newPiece :: TetrixBoard -> TetrixBoard
 newPiece board = board4
