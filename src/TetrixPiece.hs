@@ -2,7 +2,7 @@ module TetrixPiece (
     createPiece,
     TetrixPiece,
     _shape,
-    Shape(NoShape),
+    Shape(NoShape, ZShape, SShape),
     setRandomShape,
     setShape,
     x,

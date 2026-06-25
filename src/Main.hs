@@ -1,7 +1,6 @@
 module Main (main) where
 import Graphics.Gloss
-import Graphics.Gloss.Interface.Pure.Game
-import TetrixBoard (TetrixBoard, createBoard, paintEvent)
+import TetrixBoard 
 import System.Random (newStdGen)
 
 windowDisplay :: Display
@@ -15,19 +14,30 @@ main = do
         windowDisplay
         black
         60
-        board
+        (start board)
         paintEvent
-        handleEvent
+        keyPressEvent
         step
 
--- render :: GameState -> Picture
--- render state = translate 0 (_posY state - 10) $ rectangleSolid 50 50
-
-handleEvent :: Event -> TetrixBoard -> TetrixBoard
-handleEvent _ state = state
-
 step :: Float -> TetrixBoard -> TetrixBoard 
-step _ board  = board
--- step _ state = if _stepAcc state == 60 && _posY state > -280 
---                then state { _stepAcc = 0, _posY = _posY state - 20 } 
---                else state { _stepAcc = _stepAcc state + 1 }
+step _ board = finalBoard
+    where
+        isPaused = _isPaused board
+        
+        timer0 = _timer board 
+        timer1 = if isPaused then timer0 else timer0 { _actual = (_actual timer0) + 1}
+
+        board0 = board { _timer = timer1 }
+        finalBoard = 
+            if (_actual timer1) == (_final timer1)
+                then board2
+                else
+                    board0
+                where
+                    timer2 = timer1 { _actual = 0 }
+                    board1 = board { _timer = timer2 }
+                    board2 = timerEvent board1
+
+
+
+    
