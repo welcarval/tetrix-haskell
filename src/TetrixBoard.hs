@@ -123,14 +123,14 @@ shapeAt :: TetrixBoard -> Int -> Int -> Shape
 shapeAt board xCoord yCoord = _board board !! (yCoord * round boardWidth + xCoord)
 
 setShapeAt :: TetrixBoard -> Int -> Int -> Shape -> TetrixBoard
-setShapeAt board xCoord yCoord shape = 
-    board { 
-        _board = [
-            if index == ((yCoord * round boardWidth) + xCoord)
+setShapeAt board xCoord yCoord shape = board { _board = newBoard }
+    where
+        targetIndex = (yCoord * round boardWidth) + xCoord
+        newBoard = [
+            if index == targetIndex
                 then shape 
                 else oldShape | (index, oldShape) <- zip [0..] (_board board) 
-        ]
-    }
+            ]
 
 timeoutTime :: TetrixBoard -> Float
 timeoutTime board = 120 / (1 + fromIntegral (_level board))
@@ -197,10 +197,10 @@ keyPressEvent (EventKey key Down _ _) board = finalBoard
                     case key of
                         SpecialKey KeyLeft  -> tryMove board (_curPiece board) (_curX board - 1) (_curY board)
                         SpecialKey KeyRight -> tryMove board (_curPiece board) (_curX board + 1) (_curY board)
-                        SpecialKey KeyDown  -> tryMove board (rotateRight $ _curPiece board) (_curX board + 1) (_curY board)
-                        SpecialKey KeyUp    -> tryMove board (rotateLeft $ _curPiece board) (_curX board + 1) (_curY board)
+                        SpecialKey KeyDown  -> tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
+                        SpecialKey KeyUp    -> tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
                         SpecialKey KeySpace -> (dropDown board, False)
-                        -- Char 'd'            -> (oneLineDown board, False)
+                        Char 'd'            -> (oneLineDown board, False)
                         Char 'p'            -> (pause board, False)
                         _                   -> (board, False)
 
@@ -325,7 +325,7 @@ pieceDropped board dropHeight = finalBoard
             if _numPiecesDropped board1 `mod` 25 == 0
                 then board1 {
                     _level = _level board1 + 1,
-                    _timer = startTimer (_timer board2)
+                    _timer = startTimer (_timer board1)
                     -- TODO emit level changed
                 }
                 else board1
@@ -348,7 +348,7 @@ removeFullLines board = finalBoard
                 then b {
                     _numLinesRemoved = _numLinesRemoved b + nfl,
                     _score = _score b + 10 * nfl,
-                    _timer = (_timer b) { _final = 60, _actual = 0 },
+                    -- _timer = (_timer b) { _final = 60, _actual = 0 },
                     _isWaitingAfterLine = True,
                     _curPiece = setShape (_curPiece b) NoShape
                 }
@@ -372,7 +372,7 @@ removeFullLines board = finalBoard
                 isRowFull yCoord (xCoord:xs) =
                     if actualShape == NoShape then False else isRowFull yCoord xs 
                         where
-                            actualShape = shapeAt board xCoord yCoord
+                            actualShape = shapeAt tb xCoord yCoord
 
                 rowIsFull = isRowFull row columnList
 
@@ -477,40 +477,46 @@ tryMove board curPiece newX newY = (finalBoard, isValidNextPos)
                 else board
 
 drawSquare :: Int -> Int -> Shape -> Picture
-drawSquare xCoord yCoord shape = pictures [topLine, rightLine, bottomLine, leftLine, centerSquare]
+-- drawSquare xCoord yCoord shape = pictures [topLine, rightLine, bottomLine, leftLine, centerSquare]
+drawSquare xCoord yCoord shape = pictures [outerSquare, centerSquare]
     where
         centerSquare = 
             color (makeColorI r g b a) $
             translate centerX centerY $ 
             rectangleSolid (squareWidth - 2) (squareHeight - 2)
 
-        leftLine = 
-            color (makeColorI (r + 20) (g + 20) (b + 20) a) $
-            line [
-                (fromIntegral xCoord, fromIntegral yCoord + squareHeight - 1), 
-                (fromIntegral xCoord, fromIntegral yCoord)
-            ]  
+        outerSquare =
+            color (makeColorI (r + 40) (g + 40) (b + 40) a) $
+            translate centerX centerY $ 
+            rectangleSolid (squareWidth) (squareHeight)
 
-        bottomLine = 
-            color (makeColorI (r + 20) (g + 20) (b + 20) a) $
-            line [
-                (fromIntegral xCoord, fromIntegral yCoord),
-                ((fromIntegral xCoord + squareWidth - 1), fromIntegral yCoord) 
-            ]  
-
-        topLine = 
-            color (makeColorI (r - 20) (g - 20) (b - 20) a) $
-            line [
-                (fromIntegral xCoord + 1, fromIntegral yCoord + squareHeight - 1),
-                (fromIntegral xCoord + squareWidth - 1, fromIntegral yCoord + squareHeight - 1) 
-            ]  
-
-        rightLine = 
-            color (makeColorI (r - 20) (g - 20) (b - 20) a) $
-            line [
-                (fromIntegral xCoord + squareWidth - 1, fromIntegral yCoord + squareHeight - 1),
-                (fromIntegral xCoord + squareWidth - 1, fromIntegral yCoord + 1)
-            ]  
+        -- leftLine = 
+        --     color (makeColorI (r + 20) (g + 20) (b + 20) a) $
+        --     line [
+        --         (fromIntegral xCoord, fromIntegral yCoord + squareHeight - 1), 
+        --         (fromIntegral xCoord, fromIntegral yCoord)
+        --     ]  
+        --
+        -- bottomLine = 
+        --     color (makeColorI (r + 20) (g + 20) (b + 20) a) $
+        --     line [
+        --         (fromIntegral xCoord, fromIntegral yCoord),
+        --         ((fromIntegral xCoord + squareWidth - 1), fromIntegral yCoord) 
+        --     ]  
+        --
+        -- topLine = 
+        --     color (makeColorI (r - 20) (g - 20) (b - 20) a) $
+        --     line [
+        --         (fromIntegral xCoord + 1, fromIntegral yCoord + squareHeight - 1),
+        --         (fromIntegral xCoord + squareWidth - 1, fromIntegral yCoord + squareHeight - 1) 
+        --     ]  
+        --
+        -- rightLine = 
+        --     color (makeColorI (r - 20) (g - 20) (b - 20) a) $
+        --     line [
+        --         (fromIntegral xCoord + squareWidth - 1, fromIntegral yCoord + squareHeight - 1),
+        --         (fromIntegral xCoord + squareWidth - 1, fromIntegral yCoord + 1)
+        --     ]  
             
         r = (colorTable !! (fromEnum shape)) !! 0
         g = (colorTable !! (fromEnum shape)) !! 1

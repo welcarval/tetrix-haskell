@@ -29,7 +29,7 @@ step _ board = finalBoard
 
         board0 = board { _timer = timer1 }
         finalBoard = 
-            if (_actual timer1) == (_final timer1)
+            if (_actual timer1) >= (_final timer1)
                 then board2
                 else
                     board0
