@@ -8,10 +8,14 @@ module TetrixBoard (
     _final,
     _timer,
     _nextPieceLabel,
+    _nextPiece,
     newPiece,
     start,
     _isStarted,
-    _isPaused
+    _isPaused,
+    drawSquare,
+    squareWidth,
+    squareHeight
 ) 
 where
 
@@ -19,6 +23,7 @@ import TetrixPiece
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
 import System.Random
+import Data.List.Split
 
 boardWidth :: Float
 boardWidth = 10
@@ -339,6 +344,29 @@ pieceDropped board dropHeight = finalBoard
             if not (_isWaitingAfterLine board4)
                 then newPiece board4
                 else board4
+
+-- removeFullLines :: TetrixBoard -> TetrixBoard
+-- removeFullLines board = finalBoard
+--     where
+--         w = round boardWidth
+--         h = round boardHeight
+--         rows = chunksOf w (_board board)
+--         isFullRow row = all (/= NoShape) row
+--         remaining = filter (not . isFullRow) rows
+--         cleared = h - length remaining
+--         emptyRow = replicate w NoShape
+--         newRows = replicate cleared emptyRow ++ remaining
+--         newBoard = concat newRows
+--         board1 = board { _board = newBoard }
+--         finalBoard =
+--             if cleared > 0
+--                 then board1
+--                     { _numLinesRemoved   = _numLinesRemoved board1 + cleared
+--                     , _score             = _score board1 + 10 * cleared
+--                     , _isWaitingAfterLine = True
+--                     , _curPiece          = setShape (_curPiece board1) NoShape
+--                     }
+--                 else board1
 
 removeFullLines :: TetrixBoard -> TetrixBoard
 removeFullLines board = finalBoard

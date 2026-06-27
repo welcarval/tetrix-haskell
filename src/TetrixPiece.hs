@@ -12,7 +12,8 @@ module TetrixPiece (
     minX,
     minY,
     rotateRight,
-    rotateLeft
+    rotateLeft,
+    coordsTable
 ) where
 
 import System.Random
