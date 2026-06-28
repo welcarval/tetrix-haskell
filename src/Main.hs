@@ -1,5 +1,6 @@
 module Main (main) where
 import Graphics.Gloss
+import Graphics.Gloss.Juicy
 import TetrixBoard 
 import TetrixPiece
 import System.Random (newStdGen, StdGen)
@@ -14,6 +15,8 @@ windowDisplay = InWindow "Tetrix" (windowWidth, windowHeight) (800, 200)
 data TetrixWindow = TetrixWindow {
     _board :: TetrixBoard,
     _nextPieceL :: Picture,
+    _levelLabel :: Picture,
+    _scoreLabel :: Picture,
     _scoreDisplay :: Picture,
     _levelDisplay :: Picture,
     _linesDisplay :: Picture,
@@ -23,10 +26,12 @@ data TetrixWindow = TetrixWindow {
     _stdGen :: StdGen
 }
 
-createWindow :: StdGen -> TetrixWindow
-createWindow g = TetrixWindow {
-    _board = start (createBoard g),
-    _nextPieceL = text "NextPiece",
+createWindow :: StdGen -> Picture -> Picture -> Picture -> Picture -> Picture -> TetrixWindow
+createWindow g gameOverLabel nextPieceL levelLabel scoreLabel pausedLabel = TetrixWindow {
+    _board = start (createBoard g gameOverLabel pausedLabel),
+    _nextPieceL = nextPieceL,
+    _levelLabel = levelLabel,
+    _scoreLabel = scoreLabel,
     _scoreDisplay = text "0",
     _levelDisplay = text "0",
     _linesDisplay = text "0",
@@ -39,7 +44,7 @@ createWindow g = TetrixWindow {
 paintWindow :: TetrixWindow -> Picture
 paintWindow window = finalPicture
     where
-        leftSide = Pictures [nextPieceBlock, levelBlock]
+        leftSide = Pictures [nextPieceBlock, levelBlock, scoreBlock]
         centerSide = paintEvent board
         rightSide = blank
 
@@ -68,12 +73,16 @@ paintWindow window = finalPicture
         finalPicture = Pictures[leftSide, centerSide, rightSide]
 
         nextPieceBlock = translate (-sideWidth) (leftSideBlockHeight) $ Pictures[nextPieceTitle, nextPieceDraw]
-        nextPieceTitle = translate (realToFrac (-wordCenter)) (50) $ scale 0.3 0.3 $ color white $ text "NEXT PIECE"
-        nextPieceDraw = translate (-squareWidth / 2) (-50) $ drawNextPieceLabel
+        nextPieceTitle = translate (0) (50) $ _nextPieceL window
+        nextPieceDraw = translate (-squareWidth / 2) (-50) $ scale 0.7 0.7 $ drawNextPieceLabel
 
         levelBlock = translate (-sideWidth) (0) $ Pictures [levelTitle, levelValue] 
-        levelTitle = translate (calculateWordCenter "LEVEL") (0) $ scale 0.3 0.3 $ color white $ text "LEVEL"
-        levelValue = translate (calculateWordCenter (show (_level board))) (-80) $ scale 0.3 0.3 $ color white $ text (show (_level board))
+        levelTitle = translate (0) (40) $ _levelLabel window
+        levelValue = translate (calculateWordCenter (show (_level board))) (-40) $ scale 0.3 0.3 $ color white $ text (show (_level board))
+
+        scoreBlock = translate (-sideWidth) (-leftSideBlockHeight) $ Pictures [scoreTitle, scoreValue]
+        scoreTitle = translate 0 40 $ _scoreLabel window
+        scoreValue = translate (calculateWordCenter (show (_score board))) (-40) $ scale 0.3 0.3 $ color white $ text (show (_score board))
 
         calculateWordCenter word = realToFrac (-(fromIntegral (length word) * letterWidth / 2))
 
@@ -104,7 +113,19 @@ handlerEvent e window = finalWindow
 main :: IO ()
 main = do
     g <- newStdGen
-    let window = createWindow g
+    Just gameOverPng  <- loadJuicyPNG "assets/gameover.png"
+    Just nextPiecePng <- loadJuicyPNG "assets/nextpiece.png"
+    Just levelPng     <- loadJuicyPNG "assets/level.png"
+    Just scorePng     <- loadJuicyPNG "assets/score.png"
+    Just pausedPng    <- loadJuicyPNG "assets/paused.png"
+    let window = 
+            createWindow 
+                g 
+                gameOverPng 
+                nextPiecePng 
+                levelPng 
+                scorePng 
+                pausedPng
     play
         windowDisplay
         black

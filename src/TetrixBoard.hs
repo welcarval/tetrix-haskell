@@ -7,6 +7,7 @@ module TetrixBoard (
     _state,
     _actual,
     _level,
+    _score,
     _final,
     _timer,
     _nextPieceLabel,
@@ -88,6 +89,8 @@ setTimerFinal timer time = timer { _final = time }
 
 data TetrixBoard = TetrixBoard {
     _state :: GameState,
+    _gameOverLabel :: Picture,
+    _pausedLabel :: Picture,
     _timer :: Timer,
     _nextPieceLabel :: Maybe Picture,
     _isWaitingAfterLine :: Bool,
@@ -108,11 +111,13 @@ data TetrixBoard = TetrixBoard {
     _stdGen :: StdGen
 }
 
-createBoard :: StdGen -> TetrixBoard
-createBoard gen = TetrixBoard {
+createBoard :: StdGen -> Picture -> Picture -> TetrixBoard
+createBoard gen gameOverLabel pausedLabel = TetrixBoard {
     _state = Created,
     _timer = createTimer, 
     _nextPieceLabel = Nothing, 
+    _gameOverLabel = gameOverLabel,
+    _pausedLabel = pausedLabel,
     _isWaitingAfterLine = False, 
     _curPiece = createPiece, 
     _nextPiece = piece, 
@@ -220,8 +225,8 @@ pause board = finalBoard
                     timer = _timer board0
                     board1 = 
                         if _isPaused board0
-                            then board0 {  _state = Paused, _timer = timer { _actual = 0, _isTimerPaused = True, _isTimerCounting = False }}
-                            else board0 {  _state = Running, _timer = timer { _actual = 0, _isTimerCounting = True, _isTimerPaused = False, _final = timeoutTime board0}}
+                            then board0 {  _state = Paused, _timer = timer { _isTimerPaused = True, _isTimerCounting = False }}
+                            else board0 {  _state = Running, _timer = timer { _isTimerCounting = True, _isTimerPaused = False, _final = timeoutTime board0}}
 
 keyPressEvent :: Event -> TetrixBoard -> TetrixBoard
 keyPressEvent (EventKey key Down _ _) board = finalBoard
@@ -285,13 +290,12 @@ paintEvent board = Pictures [finalPicture]
         initialPicture =  rectangleSolid windowWidth windowHeight
         pausedOverflow = Pictures [
                 color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
-                translate (-80) 0 $ scale 0.3 0.3 $ color white $ text "PAUSED"
+                scale 2 2 $ _pausedLabel board
             ]
 
         gameOverOverflow = Pictures [
                 color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
-                translate (-80) 50 $ scale 0.3 0.3 $ color white $ text "GAME OVER",
-                translate (-80) (-50) $ scale 0.3 0.3 $ color white $ text "PRESS N TO RESTART"
+                translate 0 50 $ scale 2 2 $ _gameOverLabel board
             ]
 
         -- finalPicture = 
