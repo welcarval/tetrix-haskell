@@ -2,7 +2,7 @@ module TetrixBoard (
     TetrixBoard,
     createBoard, 
     paintEvent,
-    keyPressEvent,
+    keyPressEvent2,
     timerEvent,
     _state,
     _actual,
@@ -131,6 +131,29 @@ createBoard gen = TetrixBoard {
     where
     (piece, newGen) = setRandomShape createPiece gen
 
+resetBoard :: TetrixBoard -> TetrixBoard 
+resetBoard board = board {
+    _state = Created,
+    _timer = createTimer,
+    _nextPieceLabel = Nothing,
+    _isWaitingAfterLine = False,
+    _curPiece = createPiece,
+    _nextPiece = piece,
+    _curX = 0,
+    _curY = 0,
+    _numLinesRemoved = 0,
+    _numPiecesDropped = 0,
+    _score = 0,
+    _level = 0,
+    _board = [NoShape | _ <- [0..(boardWidth * boardHeight - 1)]], 
+    _frameStyle = rectangleSolid boardWidth boardHeight, 
+    _isStarted = False, 
+    _isPaused = False,
+    _stdGen = newGen
+}
+    where
+        (piece, newGen) = setRandomShape createPiece (_stdGen board)
+
 shapeAt :: TetrixBoard -> Int -> Int -> Shape
 shapeAt board xCoord yCoord = _board board !! (yCoord * round boardWidth + xCoord)
 
@@ -217,9 +240,40 @@ keyPressEvent (EventKey key Down _ _) board = finalBoard
                         Char 'p'            -> (pause board, False)
                         _                   -> (board, False)
 
-
-
 keyPressEvent _ board                       = board
+
+keyPressEvent2 :: Event -> TetrixBoard -> TetrixBoard
+keyPressEvent2 (EventKey key Down _ _) board = finalBoard
+    where
+        (finalBoard, _) = 
+            case (_state board) of
+                Created -> 
+                    case key of 
+                        Char 's' -> (start board, False)
+                        _        -> (board, False)
+                Running ->
+                    case key of
+                        SpecialKey KeyLeft  -> tryMove board (_curPiece board) (_curX board - 1) (_curY board)
+                        SpecialKey KeyRight -> tryMove board (_curPiece board) (_curX board + 1) (_curY board)
+                        SpecialKey KeyDown  -> tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
+                        SpecialKey KeyUp    -> tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
+                        SpecialKey KeySpace -> (dropDown board, False)
+                        Char 'd'            -> (oneLineDown board, False)
+                        Char 'p'            -> (pause board, False)
+                        _                   -> (board, False)
+
+                Paused ->
+                    case key of
+                        Char 'p'            -> (pause board, False)
+                        _                   -> (board, False)
+
+                GameOver ->
+                    case key of
+                        Char 'n'            -> (start (resetBoard board), False)
+                        _                   -> (board, False)
+
+
+keyPressEvent2 _ board                       = board
         
 
 paintEvent :: TetrixBoard -> Picture
@@ -234,15 +288,33 @@ paintEvent board = Pictures [finalPicture]
                 translate (-80) 0 $ scale 0.3 0.3 $ color white $ text "PAUSED"
             ]
 
+        gameOverOverflow = Pictures [
+                color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
+                translate (-80) 50 $ scale 0.3 0.3 $ color white $ text "GAME OVER",
+                translate (-80) (-50) $ scale 0.3 0.3 $ color white $ text "PRESS N TO RESTART"
+            ]
+
+        -- finalPicture = 
+        --     if (_state board) == Paused
+        --         then Pictures [finalDraw, pausedOverflow]
+        --         else finalDraw 
+        --         where 
+        --             finalDraw = 
+        --                 if (_shape $ _curPiece board) /= NoShape
+        --                     then Pictures [initialPicture, drawPictures rowList, drawCurPiece [0..3]]
+        --                     else Pictures [initialPicture, drawPictures rowList]
+
         finalPicture = 
-            if (_state board) == Paused
-                then Pictures [finalDraw, pausedOverflow]
-                else finalDraw 
-                where 
-                    finalDraw = 
-                        if (_shape $ _curPiece board) /= NoShape
-                            then Pictures [initialPicture, drawPictures rowList, drawCurPiece [0..3]]
-                            else Pictures [initialPicture, drawPictures rowList]
+            case (_state board) of
+                Paused   -> Pictures [finalDraw, pausedOverflow]
+                GameOver -> Pictures [finalDraw, gameOverOverflow]
+                _        -> finalDraw
+
+            where 
+                finalDraw = 
+                    if (_shape $ _curPiece board) /= NoShape
+                        then Pictures [initialPicture, drawPictures rowList, drawCurPiece [0..3]]
+                        else Pictures [initialPicture, drawPictures rowList]
 
         columnList :: [Int]
         columnList = [0..round boardWidth - 1]

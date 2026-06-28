@@ -98,7 +98,7 @@ handlerEvent :: Event -> TetrixWindow -> TetrixWindow
 handlerEvent e window = finalWindow
     where 
         board = _board window 
-        finalWindow = window { _board = (keyPressEvent e board) }
+        finalWindow = window { _board = (keyPressEvent2 e board) }
 
 
 main :: IO ()
