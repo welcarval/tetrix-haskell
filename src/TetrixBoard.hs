@@ -64,8 +64,15 @@ colorTable = [
 
 data GameState = Created | Running | Paused | GameOver deriving Eq
 
-newtype Score = MkScore Int deriving (Eq, Ord, Num, Show)
-newtype Level = MkLevel Int deriving (Eq, Ord, Num, Show)
+newtype Score = MkScore Int deriving (Eq, Ord, Num)
+
+newtype Level = MkLevel Int deriving (Eq, Ord, Num)
+
+instance Show Score where
+    show (MkScore n) = show n 
+
+instance Show Level where
+    show (MkLevel n) = show n 
 
 -- data Position = Position { _x :: Int, _y :: Int}
 -- data Cell = Cell { _position :: Position, _shape :: Shape }
