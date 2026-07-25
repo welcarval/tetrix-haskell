@@ -1,8 +1,10 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module TetrixBoard (
     TetrixBoard,
     createBoard, 
     paintEvent,
-    keyPressEvent2,
+    keyPressEvent,
     timerEvent,
     _state,
     _actual,
@@ -27,7 +29,6 @@ import TetrixPiece
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
 import System.Random
-import Data.List.Split
 
 boardWidth :: Float
 boardWidth = 10
@@ -63,6 +64,16 @@ colorTable = [
 
 data GameState = Created | Running | Paused | GameOver deriving Eq
 
+newtype Score = MkScore Int deriving (Eq, Ord, Num, Show)
+newtype Level = MkLevel Int deriving (Eq, Ord, Num, Show)
+
+-- data Position = Position { _x :: Int, _y :: Int}
+-- data Cell = Cell { _position :: Position, _shape :: Shape }
+--
+-- newtype Row = Row [Cell]
+-- newtype Board = Board [Row]
+--
+--
 data Timer = Timer {
     _final ::  Float,
     _actual :: Float,
@@ -90,6 +101,7 @@ setTimerFinal timer time = timer { _final = time }
 data TetrixBoard = TetrixBoard {
     _state :: GameState,
     _gameOverLabel :: Picture,
+    _startGameLabel :: Picture,
     _pausedLabel :: Picture,
     _timer :: Timer,
     _nextPieceLabel :: Maybe Picture,
@@ -100,9 +112,10 @@ data TetrixBoard = TetrixBoard {
     _curY :: Int,
     _numLinesRemoved :: Int,
     _numPiecesDropped :: Int,
-    _score :: Int,
-    _level :: Int,
+    _score :: Score,
+    _level :: Level,
     _board :: [Shape],
+    -- _board2 :: Board,
     -- equivalent to setFrameStyle
     _frameStyle :: Picture,
     -- TODO see whats equivalent to focusPolicy, maybe related do EventHandling
@@ -111,12 +124,13 @@ data TetrixBoard = TetrixBoard {
     _stdGen :: StdGen
 }
 
-createBoard :: StdGen -> Picture -> Picture -> TetrixBoard
-createBoard gen gameOverLabel pausedLabel = TetrixBoard {
+createBoard :: StdGen -> Picture -> Picture -> Picture -> TetrixBoard
+createBoard gen gameOverLabel pausedLabel startGameLabel = TetrixBoard {
     _state = Created,
     _timer = createTimer, 
     _nextPieceLabel = Nothing, 
     _gameOverLabel = gameOverLabel,
+    _startGameLabel = startGameLabel,
     _pausedLabel = pausedLabel,
     _isWaitingAfterLine = False, 
     _curPiece = createPiece, 
@@ -173,7 +187,8 @@ setShapeAt board xCoord yCoord shape = board { _board = newBoard }
             ]
 
 timeoutTime :: TetrixBoard -> Float
-timeoutTime board = 120 / (1 + fromIntegral (_level board))
+timeoutTime board = 120 / (1 + fromIntegral n)
+    where MkLevel n = _level board
 
 squareWidth :: Float
 squareWidth  = windowWidth / boardWidth
@@ -232,25 +247,6 @@ keyPressEvent :: Event -> TetrixBoard -> TetrixBoard
 keyPressEvent (EventKey key Down _ _) board = finalBoard
     where
         (finalBoard, _) = 
-            if not (_isStarted board) || (_shape $ _curPiece board) == NoShape
-                then (board, False)
-                else 
-                    case key of
-                        SpecialKey KeyLeft  -> tryMove board (_curPiece board) (_curX board - 1) (_curY board)
-                        SpecialKey KeyRight -> tryMove board (_curPiece board) (_curX board + 1) (_curY board)
-                        SpecialKey KeyDown  -> tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
-                        SpecialKey KeyUp    -> tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
-                        SpecialKey KeySpace -> (dropDown board, False)
-                        Char 'd'            -> (oneLineDown board, False)
-                        Char 'p'            -> (pause board, False)
-                        _                   -> (board, False)
-
-keyPressEvent _ board                       = board
-
-keyPressEvent2 :: Event -> TetrixBoard -> TetrixBoard
-keyPressEvent2 (EventKey key Down _ _) board = finalBoard
-    where
-        (finalBoard, _) = 
             case (_state board) of
                 Created -> 
                     case key of 
@@ -260,8 +256,8 @@ keyPressEvent2 (EventKey key Down _ _) board = finalBoard
                     case key of
                         SpecialKey KeyLeft  -> tryMove board (_curPiece board) (_curX board - 1) (_curY board)
                         SpecialKey KeyRight -> tryMove board (_curPiece board) (_curX board + 1) (_curY board)
-                        SpecialKey KeyDown  -> tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
-                        SpecialKey KeyUp    -> tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
+                        SpecialKey KeyUp    -> tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
+                        SpecialKey KeyDown  -> tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
                         SpecialKey KeySpace -> (dropDown board, False)
                         Char 'd'            -> (oneLineDown board, False)
                         Char 'p'            -> (pause board, False)
@@ -274,11 +270,11 @@ keyPressEvent2 (EventKey key Down _ _) board = finalBoard
 
                 GameOver ->
                     case key of
-                        Char 'n'            -> (start (resetBoard board), False)
+                        Char 's'            -> (start (resetBoard board), False)
                         _                   -> (board, False)
 
 
-keyPressEvent2 _ board                       = board
+keyPressEvent _ board                       = board
         
 
 paintEvent :: TetrixBoard -> Picture
@@ -298,18 +294,14 @@ paintEvent board = Pictures [finalPicture]
                 translate 0 50 $ scale 2 2 $ _gameOverLabel board
             ]
 
-        -- finalPicture = 
-        --     if (_state board) == Paused
-        --         then Pictures [finalDraw, pausedOverflow]
-        --         else finalDraw 
-        --         where 
-        --             finalDraw = 
-        --                 if (_shape $ _curPiece board) /= NoShape
-        --                     then Pictures [initialPicture, drawPictures rowList, drawCurPiece [0..3]]
-        --                     else Pictures [initialPicture, drawPictures rowList]
+        startNewGameOverflow = Pictures [
+                color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
+                translate 0 50 $ scale 2 2 $ _startGameLabel board
+            ]
 
         finalPicture = 
             case (_state board) of
+                Created  -> Pictures [finalDraw, startNewGameOverflow]
                 Paused   -> Pictures [finalDraw, pausedOverflow]
                 GameOver -> Pictures [finalDraw, gameOverOverflow]
                 _        -> finalDraw
@@ -425,7 +417,7 @@ pieceDropped board dropHeight = finalBoard
                 }
                 else board1
         board3 = board2 {
-            _score = _score board2 + dropHeight + 7
+            _score = _score board2 + MkScore dropHeight + 7
             -- TODO emit score changed
         }
 
@@ -465,7 +457,7 @@ removeFullLines board = finalBoard
             if nfl > 0
                 then b {
                     _numLinesRemoved = _numLinesRemoved b + nfl,
-                    _score = _score b + 10 * nfl,
+                    _score = _score b + 10 * MkScore nfl,
                     -- _timer = (_timer b) { _final = 60, _actual = 0 },
                     _isWaitingAfterLine = True,
                     _curPiece = setShape (_curPiece b) NoShape

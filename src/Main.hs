@@ -17,6 +17,7 @@ data TetrixWindow = TetrixWindow {
     _nextPieceL :: Picture,
     _levelLabel :: Picture,
     _scoreLabel :: Picture,
+    _controls :: Picture,
     _scoreDisplay :: Picture,
     _levelDisplay :: Picture,
     _linesDisplay :: Picture,
@@ -26,19 +27,21 @@ data TetrixWindow = TetrixWindow {
     _stdGen :: StdGen
 }
 
-createWindow :: StdGen -> Picture -> Picture -> Picture -> Picture -> Picture -> TetrixWindow
-createWindow g gameOverLabel nextPieceL levelLabel scoreLabel pausedLabel = TetrixWindow {
-    _board = start (createBoard g gameOverLabel pausedLabel),
-    _nextPieceL = nextPieceL,
-    _levelLabel = levelLabel,
-    _scoreLabel = scoreLabel,
-    _scoreDisplay = text "0",
-    _levelDisplay = text "0",
-    _linesDisplay = text "0",
-    _startButton = text "start",
-    _quitButton = text "quit",
-    _pauseButton = text "pause",
-    _stdGen = g
+createWindow :: StdGen -> Picture -> Picture -> Picture -> Picture -> Picture -> Picture -> Picture -> TetrixWindow
+createWindow g gameOverLabel nextPieceL levelLabel scoreLabel pausedLabel controls startGameLabel = 
+    TetrixWindow {
+        _board = createBoard g gameOverLabel pausedLabel startGameLabel,
+        _nextPieceL = nextPieceL,
+        _levelLabel = levelLabel,
+        _scoreLabel = scoreLabel,
+        _controls = controls,
+        _scoreDisplay = text "0",
+        _levelDisplay = text "0",
+        _linesDisplay = text "0",
+        _startButton = text "start",
+        _quitButton = text "quit",
+        _pauseButton = text "pause",
+        _stdGen = g
 }
 
 paintWindow :: TetrixWindow -> Picture
@@ -46,7 +49,7 @@ paintWindow window = finalPicture
     where
         leftSide = Pictures [nextPieceBlock, levelBlock, scoreBlock]
         centerSide = paintEvent board
-        rightSide = blank
+        rightSide = translate sideWidth 0 $ scale 0.6 0.6 $ (_controls window)
 
         sideWidth = fromIntegral windowWidth / 3
         sideWidthCenter = sideWidth / 2
@@ -62,7 +65,6 @@ paintWindow window = finalPicture
         leftSideBlockWidth = leftSideWidth
         leftSideBlockGap = 10
         leftSideBlockMargin = 20
-
 
         letterWidth = (75 :: Double) * 0.3
         wordSize = length "NEXT PIECE" 
@@ -107,7 +109,7 @@ handlerEvent :: Event -> TetrixWindow -> TetrixWindow
 handlerEvent e window = finalWindow
     where 
         board = _board window 
-        finalWindow = window { _board = (keyPressEvent2 e board) }
+        finalWindow = window { _board = (keyPressEvent e board) }
 
 
 main :: IO ()
@@ -118,6 +120,9 @@ main = do
     Just levelPng     <- loadJuicyPNG "assets/level.png"
     Just scorePng     <- loadJuicyPNG "assets/score.png"
     Just pausedPng    <- loadJuicyPNG "assets/paused.png"
+    Just controlsPng  <- loadJuicyPNG "assets/controls.png"
+    Just startGamePng <- loadJuicyPNG "assets/startgame.png"
+
     let window = 
             createWindow 
                 g 
@@ -126,6 +131,8 @@ main = do
                 levelPng 
                 scorePng 
                 pausedPng
+                controlsPng
+                startGamePng
     play
         windowDisplay
         black
