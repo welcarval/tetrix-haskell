@@ -40,25 +40,15 @@ windowHeight = 660
 windowWidth :: Float
 windowWidth = 300
 
-colorTable :: [[Int]]
-colorTable = [
-        -- black
-        [0, 0, 0, 255],
-        -- red
-        [204, 102, 102, 255],
-        -- green
-        [102, 204, 102, 255],
-        -- blue
-        [102, 102, 204, 255],
-        -- yellow
-        [204, 204, 102, 255],
-        -- pink
-        [204, 102, 204, 255],
-        -- cyan
-        [102, 204, 204, 255],
-        -- beige
-        [218, 170, 0, 255]
-    ]
+shapeToColor :: Shape -> Color
+shapeToColor NoShape        = makeColorI 0 0 0 255
+shapeToColor ZShape         = makeColorI 204 102 102 255
+shapeToColor SShape         = makeColorI 102 204 102 255
+shapeToColor LineShape      = makeColorI 102 102 204 255
+shapeToColor TShape         = makeColorI 204 204 102 255
+shapeToColor SquareShape    = makeColorI 204 102 204 255
+shapeToColor LShape         = makeColorI 102 204 204 255
+shapeToColor MirroredLShape = makeColorI 218 170 0 255
 
 data GameState = Created | Running | Paused | GameOver deriving Eq
 
@@ -565,51 +555,18 @@ tryMove board curPiece newX newY = (finalBoard, isValidNextPos)
                 else board
 
 drawSquare :: Int -> Int -> Shape -> Picture
--- drawSquare xCoord yCoord shape = pictures [topLine, rightLine, bottomLine, leftLine, centerSquare]
 drawSquare xCoord yCoord shape = pictures [outerSquare, centerSquare]
     where
+        baseColor = shapeToColor shape
         centerSquare = 
-            color (makeColorI r g b a) $
+            color baseColor $
             translate centerX centerY $ 
             rectangleSolid (squareWidth - 2) (squareHeight - 2)
 
         outerSquare =
-            color (makeColorI (r + 40) (g + 40) (b + 40) a) $
+            color (light baseColor) $
             translate centerX centerY $ 
             rectangleSolid (squareWidth) (squareHeight)
-
-        -- leftLine = 
-        --     color (makeColorI (r + 20) (g + 20) (b + 20) a) $
-        --     line [
-        --         (fromIntegral xCoord, fromIntegral yCoord + squareHeight - 1), 
-        --         (fromIntegral xCoord, fromIntegral yCoord)
-        --     ]  
-        --
-        -- bottomLine = 
-        --     color (makeColorI (r + 20) (g + 20) (b + 20) a) $
-        --     line [
-        --         (fromIntegral xCoord, fromIntegral yCoord),
-        --         ((fromIntegral xCoord + squareWidth - 1), fromIntegral yCoord) 
-        --     ]  
-        --
-        -- topLine = 
-        --     color (makeColorI (r - 20) (g - 20) (b - 20) a) $
-        --     line [
-        --         (fromIntegral xCoord + 1, fromIntegral yCoord + squareHeight - 1),
-        --         (fromIntegral xCoord + squareWidth - 1, fromIntegral yCoord + squareHeight - 1) 
-        --     ]  
-        --
-        -- rightLine = 
-        --     color (makeColorI (r - 20) (g - 20) (b - 20) a) $
-        --     line [
-        --         (fromIntegral xCoord + squareWidth - 1, fromIntegral yCoord + squareHeight - 1),
-        --         (fromIntegral xCoord + squareWidth - 1, fromIntegral yCoord + 1)
-        --     ]  
-            
-        r = (colorTable !! (fromEnum shape)) !! 0
-        g = (colorTable !! (fromEnum shape)) !! 1
-        b = (colorTable !! (fromEnum shape)) !! 2
-        a = (colorTable !! (fromEnum shape)) !! 3
 
         centerX = fromIntegral xCoord + squareWidth / 2
         centerY = fromIntegral yCoord + squareHeight / 2
