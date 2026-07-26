@@ -16,8 +16,6 @@ module TetrixBoard (
     _nextPiece,
     newPiece,
     start,
-    _isStarted,
-    _isPaused,
     drawSquare,
     squareWidth,
     squareHeight,
@@ -63,6 +61,12 @@ colorTable = [
     ]
 
 data GameState = Created | Running | Paused | GameOver deriving Eq
+
+isStarted :: TetrixBoard -> Bool
+isStarted board = _state board == Running || _state board == Paused
+
+isPaused :: TetrixBoard -> Bool
+isPaused board = _state board == Paused
 
 newtype Score = MkScore Int deriving (Eq, Ord, Num)
 
@@ -135,8 +139,6 @@ data TetrixBoard = TetrixBoard {
     -- equivalent to setFrameStyle
     _frameStyle :: Picture,
     -- TODO see whats equivalent to focusPolicy, maybe related do EventHandling
-    _isStarted :: Bool,
-    _isPaused :: Bool,
     _stdGen :: StdGen
 }
 
@@ -159,8 +161,6 @@ createBoard gen gameOverLabel pausedLabel startGameLabel = TetrixBoard {
     _level = 0, 
     _board = [NoShape | _ <- [0..(boardWidth * boardHeight - 1)]], 
     _frameStyle = rectangleSolid boardWidth boardHeight, 
-    _isStarted = False, 
-    _isPaused = False,
     _stdGen = newGen
     }
     where
@@ -182,8 +182,6 @@ resetBoard board = board {
     _level = 0,
     _board = [NoShape | _ <- [0..(boardWidth * boardHeight - 1)]], 
     _frameStyle = rectangleSolid boardWidth boardHeight, 
-    _isStarted = False, 
-    _isPaused = False,
     _stdGen = newGen
 }
     where
@@ -222,12 +220,11 @@ start :: TetrixBoard -> TetrixBoard
 start board = finalBoard
     where
         finalBoard = 
-            if _isPaused board
+            if isPaused board
                 then board
                 else board3 
                     where
                         board0 = board {
-                            _isStarted = True,
                             _state = Running,
                             _isWaitingAfterLine = False,
                             _numLinesRemoved = 0,
@@ -248,16 +245,15 @@ pause :: TetrixBoard -> TetrixBoard
 pause board = finalBoard
     where
         finalBoard = 
-            if not (_isStarted board)
+            if not (isStarted board)
                 then board
                 else board1
                 where
-                    board0 = board { _isPaused = not (_isPaused board) }
-                    timer = _timer board0
+                    timer = _timer board
                     board1 = 
-                        if _isPaused board0
-                            then board0 {  _state = Paused, _timer = timer { _isTimerPaused = True, _isTimerCounting = False }}
-                            else board0 {  _state = Running, _timer = timer { _isTimerCounting = True, _isTimerPaused = False, _final = timeoutTime board0}}
+                        if isPaused board
+                            then board {  _state = Running, _timer = timer { _isTimerPaused = False, _isTimerCounting = True, _final = timeoutTime board }}
+                            else board {  _state = Paused, _timer = timer { _isTimerCounting = False, _isTimerPaused = True}}
 
 keyPressEvent :: Event -> TetrixBoard -> TetrixBoard
 keyPressEvent (EventKey key Down _ _) board = finalBoard
@@ -525,8 +521,7 @@ newPiece board = board4
                 then board3 {
                     _curPiece = setShape (_curPiece board3) NoShape,
                     _timer = stopTimer (_timer board3),
-                    _state = GameOver,
-                    _isStarted = False
+                    _state = GameOver
                 }
                 else board3 {
                     _nextPiece = nextPiece

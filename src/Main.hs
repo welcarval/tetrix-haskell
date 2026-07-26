@@ -147,8 +147,6 @@ step _ window = finalWindow
     where
         board = _board window
         
-        isPaused = _isPaused board
-        isStarted = _isStarted board
         state = _state board
         
         timer0 = _timer board 
