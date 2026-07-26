@@ -93,24 +93,6 @@ x piece index = _px (blockAt (_blocks piece) index)
 y :: TetrixPiece -> Int -> Int
 y piece index = _py (blockAt (_blocks piece) index)
 
--- setX :: TetrixPiece -> Int -> Int -> TetrixPiece
--- setX piece index newX = piece { _coords = [
---                                           if blockIndex == index
---                                           then [newX, (_coords piece !! index) !! 1]
---                                           else blockCoord | (blockIndex, blockCoord) <- zip [0..] (_coords piece)
---                                           ]
---                               }
---
---
---
--- setY :: TetrixPiece -> Int -> Int -> TetrixPiece
--- setY piece index newY = piece { _coords = [
---                                           if blockIndex == index
---                                           then [(_coords piece !! index) !! 0, newY]
---                                           else blockCoord | (blockIndex, blockCoord) <- zip [0..] (_coords piece)
---                                           ]
---                               }
-
 minX :: TetrixPiece -> Int
 minX piece = foldr min initialX xList
   where
