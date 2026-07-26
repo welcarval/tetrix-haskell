@@ -89,21 +89,26 @@ paintWindow window = finalPicture
         calculateWordCenter word = realToFrac (-(fromIntegral (length word) * letterWidth / 2))
 
         nextPieceLabelShape = _shape (_nextPiece board)
+        --
+        -- squareCordsShape = coordsTable !! fromEnum nextPieceLabelShape
 
-        squareCordsShape = coordsTable !! fromEnum nextPieceLabelShape
+        nextPiece = _nextPiece board
+        drawNextPieceLabel = Pictures [drawSquare (x nextPiece i * round squareWidth) 
+                                         (y nextPiece i * round squareHeight) 
+                                         nextPieceLabelShape | i <- [0..3]]
 
-        drawNextPieceLabel = drawPic [0..3] 
-            where
-                drawPic :: [Int] -> Picture
-                drawPic []                 = blank
-                drawPic (square:squares)   = Pictures [positionedSquare, drawPic squares]
-                    where
-                        positionedSquare = 
-                            drawSquare (round xCoord) (round yCoord) nextPieceLabelShape
-                                where
-                                    squareCoords = squareCordsShape !! square
-                                    xCoord = fromIntegral (squareCoords !! 0) * squareWidth
-                                    yCoord = fromIntegral (squareCoords !! 1) * squareHeight
+        -- drawNextPieceLabel = drawPic [0..3] 
+        --     where
+        --         drawPic :: [Int] -> Picture
+        --         drawPic []                 = blank
+        --         drawPic (square:squares)   = Pictures [positionedSquare, drawPic squares]
+        --             where
+        --                 positionedSquare = 
+        --                     drawSquare (round xCoord) (round yCoord) nextPieceLabelShape
+        --                         where
+        --                             squareCoords = squareCordsShape !! square
+        --                             xCoord = fromIntegral (squareCoords !! 0) * squareWidth
+        --                             yCoord = fromIntegral (squareCoords !! 1) * squareHeight
 
 handlerEvent :: Event -> TetrixWindow -> TetrixWindow
 handlerEvent e window = finalWindow

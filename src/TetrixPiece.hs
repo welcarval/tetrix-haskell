@@ -13,30 +13,9 @@ module TetrixPiece (
     minY,
     rotateRight,
     rotateLeft,
-    coordsTable,
 ) where
 
 import System.Random
-
-coordsTable :: [[[Int]]]
-coordsTable =
-    [ -- NoShape
-      [[0, 0], [0, 0], [0, 0], [0, 0]]
-    , -- ZShape
-      [[0, -1], [0, 0], [-1, 0], [-1, 1]]
-    , -- SShape
-      [[0, -1], [0, 0], [1, 0], [1, 1]]
-    , -- LineShape
-      [[0, -1], [0, 0], [0, 1], [0, 2]]
-    , -- TShape
-      [[-1, 0], [0, 0], [1, 0], [0, 1]]
-    , -- SquareShape
-      [[0, 0], [1, 0], [0, 1], [1, 1]]
-    , -- LShape
-      [[-1, -1], [0, -1], [0, 0], [0, 1]]
-    , -- MirroredLShape
-      [[1, -1], [0, -1], [0, 0], [0, 1]]
-    ]
 
 data Shape = NoShape | ZShape | SShape | LineShape | TShape | SquareShape | LShape | MirroredLShape deriving (Eq, Enum)
 
@@ -46,13 +25,15 @@ data Blocks = Blocks Point Point Point Point deriving (Eq, Show)
 
 data TetrixPiece = TetrixPiece {_blocks :: Blocks, _shape :: Shape}
 
-pointFromList :: [Int] -> Point
-pointFromList [xCoord, yCoord] = Point xCoord yCoord
-pointFromList coords = error ("pointFromList: was waiting [x, y], but instead received " ++ show coords)
-
-blocksFromList :: [[Int]] -> Blocks
-blocksFromList [a, b, c, d] = Blocks (pointFromList a) (pointFromList b) (pointFromList c) (pointFromList d)
-blocksFromList coordsList = error ("blocksFromList: was waiting 4 points, but instead received " ++ show (length coordsList))
+shapeCoords :: Shape -> Blocks
+shapeCoords NoShape        = Blocks (Point 0 0)    (Point 0 0)   (Point 0 0)   (Point 0 0)
+shapeCoords ZShape         = Blocks (Point 0 (-1)) (Point 0 0)   (Point (-1) 0)(Point (-1) 1)
+shapeCoords SShape         = Blocks (Point 0 (-1)) (Point 0 0)   (Point 1 0)   (Point 1 1)
+shapeCoords LineShape      = Blocks (Point 0 (-1)) (Point 0 0)   (Point 0 1)   (Point 0 2)
+shapeCoords TShape         = Blocks (Point (-1) 0) (Point 0 0)   (Point 1 0)   (Point 0 1)
+shapeCoords SquareShape    = Blocks (Point 0 0)    (Point 1 0)   (Point 0 1)   (Point 1 1)
+shapeCoords LShape         = Blocks (Point (-1) (-1)) (Point 0 (-1)) (Point 0 0) (Point 0 1)
+shapeCoords MirroredLShape = Blocks (Point 1 (-1)) (Point 0 (-1)) (Point 0 0) (Point 0 1)
 
 blocksToList :: Blocks -> [Point]
 blocksToList (Blocks p0 p1 p2 p3) = [p0, p1, p2, p3]
@@ -66,19 +47,18 @@ blockAt blocks index =
         0 -> p0
         1 -> p1
         2 -> p2
-        3 -> p3
-        _ -> error ("blockAt: invalid block index (was wainting 0..3): " ++ show index)
+        _ -> p3
   where
     Blocks p0 p1 p2 p3 = blocks
 
 createPiece :: TetrixPiece
-createPiece = TetrixPiece{_blocks = blocksFromList (coordsTable !! (fromEnum NoShape)), _shape = NoShape}
+createPiece = TetrixPiece{ _blocks = shapeCoords NoShape, _shape = NoShape}
 
 getShape :: TetrixPiece -> Shape
 getShape piece = _shape piece
 
 setShape :: TetrixPiece -> Shape -> TetrixPiece
-setShape piece shape = piece{_blocks = blocksFromList (coordsTable !! (fromEnum shape)), _shape = shape}
+setShape piece shape = piece{ _blocks = shapeCoords shape, _shape = shape}
 
 setRandomShape :: TetrixPiece -> StdGen -> (TetrixPiece, StdGen)
 setRandomShape piece gen = (setShape piece (toEnum randomNumber), newGen)
@@ -121,10 +101,7 @@ rotateLeft :: TetrixPiece -> TetrixPiece
 rotateLeft piece =
     if _shape piece == SquareShape
         then piece
-        else
-            piece
-                { _blocks = newBlocks
-                }
+        else piece { _blocks = newBlocks }
   where
     newBlocks = mapBlocks (\(Point xCoord yCoord) -> Point yCoord (-xCoord)) (_blocks piece)
 
@@ -132,9 +109,6 @@ rotateRight :: TetrixPiece -> TetrixPiece
 rotateRight piece =
     if _shape piece == SquareShape
         then piece
-        else
-            piece
-                { _blocks = newBlocks
-                }
+        else piece { _blocks = newBlocks }
   where
     newBlocks = mapBlocks (\(Point xCoord yCoord) -> Point (-yCoord) xCoord) (_blocks piece)
