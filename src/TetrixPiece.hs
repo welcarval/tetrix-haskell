@@ -48,24 +48,21 @@ blockAt blocks index =
         1 -> p1
         2 -> p2
         _ -> p3
-  where
-    Blocks p0 p1 p2 p3 = blocks
+    where
+        Blocks p0 p1 p2 p3 = blocks
 
 createPiece :: TetrixPiece
 createPiece = TetrixPiece{ _blocks = shapeCoords NoShape, _shape = NoShape}
-
-getShape :: TetrixPiece -> Shape
-getShape piece = _shape piece
 
 setShape :: TetrixPiece -> Shape -> TetrixPiece
 setShape piece shape = piece{ _blocks = shapeCoords shape, _shape = shape}
 
 setRandomShape :: TetrixPiece -> StdGen -> (TetrixPiece, StdGen)
 setRandomShape piece gen = (setShape piece (toEnum randomNumber), newGen)
-  where
-    randomNumber :: Int
-    newGen :: StdGen
-    (randomNumber, newGen) = randomR (1, 7) gen
+    where
+        randomNumber :: Int
+        newGen :: StdGen
+        (randomNumber, newGen) = randomR (1, 7) gen
 
 x :: TetrixPiece -> Int -> Int
 x piece index = _px (blockAt (_blocks piece) index)
@@ -75,40 +72,40 @@ y piece index = _py (blockAt (_blocks piece) index)
 
 minX :: TetrixPiece -> Int
 minX piece = foldr min initialX xList
-  where
-    initialX = x piece 0
-    xList = map _px (blocksToList (_blocks piece))
+    where
+        initialX = x piece 0
+        xList = map _px (blocksToList (_blocks piece))
 
 maxX :: TetrixPiece -> Int
 maxX piece = foldr max initialX xList
-  where
-    initialX = x piece 0
-    xList = map _px (blocksToList (_blocks piece))
+    where
+        initialX = x piece 0
+        xList = map _px (blocksToList (_blocks piece))
 
 minY :: TetrixPiece -> Int
 minY piece = foldr min initialY yList
-  where
-    initialY = y piece 0
-    yList = map _py (blocksToList (_blocks piece))
+    where
+        initialY = y piece 0
+        yList = map _py (blocksToList (_blocks piece))
 
 maxY :: TetrixPiece -> Int
 maxY piece = foldr max initialY yList
-  where
-    initialY = y piece 0
-    yList = map _py (blocksToList (_blocks piece))
+    where
+        initialY = y piece 0
+        yList = map _py (blocksToList (_blocks piece))
 
 rotateLeft :: TetrixPiece -> TetrixPiece
 rotateLeft piece =
     if _shape piece == SquareShape
         then piece
         else piece { _blocks = newBlocks }
-  where
-    newBlocks = mapBlocks (\(Point xCoord yCoord) -> Point yCoord (-xCoord)) (_blocks piece)
+    where
+        newBlocks = mapBlocks (\(Point xCoord yCoord) -> Point yCoord (-xCoord)) (_blocks piece)
 
 rotateRight :: TetrixPiece -> TetrixPiece
 rotateRight piece =
     if _shape piece == SquareShape
         then piece
         else piece { _blocks = newBlocks }
-  where
-    newBlocks = mapBlocks (\(Point xCoord yCoord) -> Point (-yCoord) xCoord) (_blocks piece)
+    where
+        newBlocks = mapBlocks (\(Point xCoord yCoord) -> Point (-yCoord) xCoord) (_blocks piece)

@@ -1,34 +1,36 @@
 module Main (main) where
 import Graphics.Gloss
-import Graphics.Gloss.Juicy
-import TetrixBoard 
-import TetrixPiece
-import System.Random (newStdGen, StdGen)
 import Graphics.Gloss.Interface.Pure.Game
+import Graphics.Gloss.Juicy
+import System.Random (StdGen, newStdGen)
+import TetrixBoard
+import TetrixPiece
 
+windowWidth :: Int
 windowWidth = 900
+windowHeight :: Int
 windowHeight = 750
 
 windowDisplay :: Display
 windowDisplay = InWindow "Tetrix" (windowWidth, windowHeight) (800, 200)
 
 data TetrixWindow = TetrixWindow {
-    _board :: SomeTetrixBoard,
-    _nextPieceL :: Picture,
-    _levelLabel :: Picture,
-    _scoreLabel :: Picture,
-    _controls :: Picture,
+    _board        :: SomeTetrixBoard,
+    _nextPieceL   :: Picture,
+    _levelLabel   :: Picture,
+    _scoreLabel   :: Picture,
+    _controls     :: Picture,
     _scoreDisplay :: Picture,
     _levelDisplay :: Picture,
     _linesDisplay :: Picture,
-    _startButton :: Picture,
-    _quitButton :: Picture,
-    _pauseButton :: Picture,
-    _stdGen :: StdGen
+    _startButton  :: Picture,
+    _quitButton   :: Picture,
+    _pauseButton  :: Picture,
+    _stdGen       :: StdGen
 }
 
 createWindow :: StdGen -> Picture -> Picture -> Picture -> Picture -> Picture -> Picture -> Picture -> TetrixWindow
-createWindow g gameOverLabel nextPieceL levelLabel scoreLabel pausedLabel controls startGameLabel = 
+createWindow g gameOverLabel nextPieceL levelLabel scoreLabel pausedLabel controls startGameLabel =
     TetrixWindow {
         _board = SomeTetrixBoard SCreated $ createBoard g gameOverLabel pausedLabel startGameLabel,
         _nextPieceL = nextPieceL,
@@ -55,26 +57,10 @@ paintBoard window someBoard@(SomeTetrixBoard _ board) = finalPicture
         rightSide = translate sideWidth 0 $ scale 0.6 0.6 $ (_controls window)
 
         sideWidth = fromIntegral windowWidth / 3
-        sideWidthCenter = sideWidth / 2
-         
-        leftSideWidth = sideWidth
-        centerSideWidth = sideWidth
-        rightSideWidth = sideWidth
-
-        sideHeight = windowHeight
-        sideHeightCenter = fromIntegral windowHeight / 2
 
         leftSideBlockHeight = fromIntegral windowHeight / 3
-        leftSideBlockWidth = leftSideWidth
-        leftSideBlockGap = 10
-        leftSideBlockMargin = 20
 
         letterWidth = (75 :: Double) * 0.3
-        wordSize = length "NEXT PIECE" 
-        wordCenter = fromIntegral wordSize * letterWidth / 2
-
-        -- someBoard = _board window
-        -- board = case someBoard of SomeTetrixBoard _ b -> b
 
         finalPicture = Pictures[leftSide, centerSide, rightSide]
 
@@ -82,7 +68,7 @@ paintBoard window someBoard@(SomeTetrixBoard _ board) = finalPicture
         nextPieceTitle = translate (0) (50) $ _nextPieceL window
         nextPieceDraw = translate (-squareWidth / 2) (-50) $ scale 0.7 0.7 $ drawNextPieceLabel
 
-        levelBlock = translate (-sideWidth) (0) $ Pictures [levelTitle, levelValue] 
+        levelBlock = translate (-sideWidth) (0) $ Pictures [levelTitle, levelValue]
         levelTitle = translate (0) (40) $ _levelLabel window
         levelValue = translate (calculateWordCenter (show (_level board))) (-40) $ scale 0.3 0.3 $ color white $ text (show (_level board))
 
@@ -93,31 +79,16 @@ paintBoard window someBoard@(SomeTetrixBoard _ board) = finalPicture
         calculateWordCenter word = realToFrac (-(fromIntegral (length word) * letterWidth / 2))
 
         nextPieceLabelShape = _shape (_nextPiece board)
-        --
-        -- squareCordsShape = coordsTable !! fromEnum nextPieceLabelShape
 
         nextPiece = _nextPiece board
-        drawNextPieceLabel = Pictures [drawSquare (x nextPiece i * round squareWidth) 
-                                         (y nextPiece i * round squareHeight) 
+        drawNextPieceLabel = Pictures [drawSquare (x nextPiece i * round squareWidth)
+                                         (y nextPiece i * round squareHeight)
                                          nextPieceLabelShape | i <- [0..3]]
-
-        -- drawNextPieceLabel = drawPic [0..3] 
-        --     where
-        --         drawPic :: [Int] -> Picture
-        --         drawPic []                 = blank
-        --         drawPic (square:squares)   = Pictures [positionedSquare, drawPic squares]
-        --             where
-        --                 positionedSquare = 
-        --                     drawSquare (round xCoord) (round yCoord) nextPieceLabelShape
-        --                         where
-        --                             squareCoords = squareCordsShape !! square
-        --                             xCoord = fromIntegral (squareCoords !! 0) * squareWidth
-        --                             yCoord = fromIntegral (squareCoords !! 1) * squareHeight
 
 handlerEvent :: Event -> TetrixWindow -> TetrixWindow
 handlerEvent e window = finalWindow
-    where 
-        board = _board window 
+    where
+        board = _board window
         finalWindow = window { _board = (keyPressEvent e board) }
 
 
@@ -132,13 +103,13 @@ main = do
     Just controlsPng  <- loadJuicyPNG "assets/controls.png"
     Just startGamePng <- loadJuicyPNG "assets/startgame.png"
 
-    let window = 
-            createWindow 
-                g 
-                gameOverPng 
-                nextPiecePng 
-                levelPng 
-                scorePng 
+    let window =
+            createWindow
+                g
+                gameOverPng
+                nextPiecePng
+                levelPng
+                scorePng
                 pausedPng
                 controlsPng
                 startGamePng
@@ -151,29 +122,5 @@ main = do
         handlerEvent
         step
 
-step :: Float -> TetrixWindow -> TetrixWindow 
+step :: Float -> TetrixWindow -> TetrixWindow
 step _ window = window { _board = advanceTimer (_board window)}
-    -- where
-    --     board = _board window
-    --
-    --     state = _state board
-    --
-    --     timer0 = _timer board 
-    --     timer1 = if state /= Running then timer0 else timer0 { _actual = (_actual timer0) + 1}
-    --
-    --     board0 = board { _timer = timer1 }
-    --     finalBoard = 
-    --         if (_actual timer1) >= (_final timer1)
-    --             then board2
-    --             else
-    --                 board0
-    --             where
-    --                 timer2 = timer1 { _actual = 0 }
-    --                 board1 = board { _timer = timer2 }
-    --                 board2 = timerEvent board1
-    --
-    --     finalWindow = window { _board = finalBoard }
-
-
-
-    
