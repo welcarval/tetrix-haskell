@@ -13,7 +13,7 @@ windowDisplay :: Display
 windowDisplay = InWindow "Tetrix" (windowWidth, windowHeight) (800, 200)
 
 data TetrixWindow = TetrixWindow {
-    _board :: TetrixBoard,
+    _board :: SomeTetrixBoard,
     _nextPieceL :: Picture,
     _levelLabel :: Picture,
     _scoreLabel :: Picture,
@@ -30,7 +30,7 @@ data TetrixWindow = TetrixWindow {
 createWindow :: StdGen -> Picture -> Picture -> Picture -> Picture -> Picture -> Picture -> Picture -> TetrixWindow
 createWindow g gameOverLabel nextPieceL levelLabel scoreLabel pausedLabel controls startGameLabel = 
     TetrixWindow {
-        _board = createBoard g gameOverLabel pausedLabel startGameLabel,
+        _board = SomeTetrixBoard SCreated $ createBoard g gameOverLabel pausedLabel startGameLabel,
         _nextPieceL = nextPieceL,
         _levelLabel = levelLabel,
         _scoreLabel = scoreLabel,
@@ -45,10 +45,13 @@ createWindow g gameOverLabel nextPieceL levelLabel scoreLabel pausedLabel contro
 }
 
 paintWindow :: TetrixWindow -> Picture
-paintWindow window = finalPicture
+paintWindow window = paintBoard window (_board window)
+
+paintBoard :: TetrixWindow -> SomeTetrixBoard -> Picture
+paintBoard window someBoard@(SomeTetrixBoard _ board) = finalPicture
     where
         leftSide = Pictures [nextPieceBlock, levelBlock, scoreBlock]
-        centerSide = paintEvent board
+        centerSide = paintEvent someBoard
         rightSide = translate sideWidth 0 $ scale 0.6 0.6 $ (_controls window)
 
         sideWidth = fromIntegral windowWidth / 3
@@ -70,7 +73,8 @@ paintWindow window = finalPicture
         wordSize = length "NEXT PIECE" 
         wordCenter = fromIntegral wordSize * letterWidth / 2
 
-        board = _board window
+        -- someBoard = _board window
+        -- board = case someBoard of SomeTetrixBoard _ b -> b
 
         finalPicture = Pictures[leftSide, centerSide, rightSide]
 
@@ -148,27 +152,27 @@ main = do
         step
 
 step :: Float -> TetrixWindow -> TetrixWindow 
-step _ window = finalWindow
-    where
-        board = _board window
-        
-        state = _state board
-        
-        timer0 = _timer board 
-        timer1 = if state /= Running then timer0 else timer0 { _actual = (_actual timer0) + 1}
-
-        board0 = board { _timer = timer1 }
-        finalBoard = 
-            if (_actual timer1) >= (_final timer1)
-                then board2
-                else
-                    board0
-                where
-                    timer2 = timer1 { _actual = 0 }
-                    board1 = board { _timer = timer2 }
-                    board2 = timerEvent board1
-
-        finalWindow = window { _board = finalBoard }
+step _ window = window { _board = advanceTimer (_board window)}
+    -- where
+    --     board = _board window
+    --
+    --     state = _state board
+    --
+    --     timer0 = _timer board 
+    --     timer1 = if state /= Running then timer0 else timer0 { _actual = (_actual timer0) + 1}
+    --
+    --     board0 = board { _timer = timer1 }
+    --     finalBoard = 
+    --         if (_actual timer1) >= (_final timer1)
+    --             then board2
+    --             else
+    --                 board0
+    --             where
+    --                 timer2 = timer1 { _actual = 0 }
+    --                 board1 = board { _timer = timer2 }
+    --                 board2 = timerEvent board1
+    --
+    --     finalWindow = window { _board = finalBoard }
 
 
 

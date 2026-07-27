@@ -1,25 +1,24 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module TetrixBoard (
     TetrixBoard,
+    SomeTetrixBoard (SomeTetrixBoard),
+    SGameState (SCreated, SRunning, SPaused, SGameOver),
     createBoard, 
     paintEvent,
     keyPressEvent,
-    timerEvent,
-    _state,
-    _actual,
+    advanceTimer,
     _level,
     _score,
-    _final,
-    _timer,
-    _nextPieceLabel,
     _nextPiece,
     newPiece,
-    start,
     drawSquare,
     squareWidth,
     squareHeight,
-    GameState (Created, Running, Paused, GameOver)
 ) 
 where
 
@@ -50,13 +49,22 @@ shapeToColor SquareShape    = makeColorI 204 102 204 255
 shapeToColor LShape         = makeColorI 102 204 204 255
 shapeToColor MirroredLShape = makeColorI 218 170 0 255
 
-data GameState = Created | Running | Paused | GameOver deriving Eq
+data GameState = Created | Running | Paused | GameOver
 
-isStarted :: TetrixBoard -> Bool
-isStarted board = _state board == Running || _state board == Paused
+data SGameState (s :: GameState) where
+    SCreated  :: SGameState 'Created
+    SRunning  :: SGameState 'Running
+    SPaused   :: SGameState 'Paused
+    SGameOver :: SGameState 'GameOver
 
-isPaused :: TetrixBoard -> Bool
-isPaused board = _state board == Paused
+data SomeTetrixBoard where
+    SomeTetrixBoard :: SGameState s -> TetrixBoard s -> SomeTetrixBoard
+
+-- isStarted :: TetrixBoard -> Bool
+-- isStarted board = _state board == Running || _state board == Paused
+--
+-- isPaused :: TetrixBoard -> Bool
+-- isPaused board = _state board == Paused
 
 newtype Score = MkScore Int deriving (Eq, Ord, Num)
 
@@ -108,8 +116,8 @@ stopTimer timer = timer { _actual = 0, _isTimerPaused = True, _isTimerCounting =
 setTimerFinal :: Timer -> Float -> Timer
 setTimerFinal timer time = timer { _final = time }
 
-data TetrixBoard = TetrixBoard {
-    _state :: GameState,
+data TetrixBoard (s :: GameState) = TetrixBoard {
+    -- _state :: GameState,
     _gameOverLabel :: Picture,
     _startGameLabel :: Picture,
     _pausedLabel :: Picture,
@@ -132,9 +140,15 @@ data TetrixBoard = TetrixBoard {
     _stdGen :: StdGen
 }
 
-createBoard :: StdGen -> Picture -> Picture -> Picture -> TetrixBoard
+-- TODO, used just to recreate board changing his gameState, maybe should use another idea
+-- for this behavior
+
+retagBoard :: TetrixBoard s -> TetrixBoard s'
+retagBoard TetrixBoard{..} = TetrixBoard{..}
+
+createBoard :: StdGen -> Picture -> Picture -> Picture -> TetrixBoard 'Created
 createBoard gen gameOverLabel pausedLabel startGameLabel = TetrixBoard {
-    _state = Created,
+    -- _state = Created,
     _timer = createTimer, 
     _nextPieceLabel = Nothing, 
     _gameOverLabel = gameOverLabel,
@@ -156,9 +170,9 @@ createBoard gen gameOverLabel pausedLabel startGameLabel = TetrixBoard {
     where
     (piece, newGen) = setRandomShape createPiece gen
 
-resetBoard :: TetrixBoard -> TetrixBoard 
-resetBoard board = board {
-    _state = Created,
+resetBoard :: TetrixBoard s -> TetrixBoard 'Created 
+resetBoard board = retagBoard board {
+    -- _state = Created,
     _timer = createTimer,
     _nextPieceLabel = Nothing,
     _isWaitingAfterLine = False,
@@ -177,10 +191,10 @@ resetBoard board = board {
     where
         (piece, newGen) = setRandomShape createPiece (_stdGen board)
 
-shapeAt :: TetrixBoard -> X -> Y -> Shape
+shapeAt :: TetrixBoard s -> X -> Y -> Shape
 shapeAt board (MkX xCoord) (MkY yCoord) = _board board !! (yCoord * round boardWidth + xCoord)
 
-setShapeAt :: TetrixBoard -> X -> Y -> Shape -> TetrixBoard
+setShapeAt :: TetrixBoard s -> X -> Y -> Shape -> TetrixBoard s
 setShapeAt board (MkX xCoord) (MkY yCoord) shape = board { _board = newBoard }
     where
         targetIndex = (yCoord * round boardWidth) + xCoord
@@ -190,7 +204,7 @@ setShapeAt board (MkX xCoord) (MkY yCoord) shape = board { _board = newBoard }
                 else oldShape | (index, oldShape) <- zip [0..] (_board board) 
             ]
 
-timeoutTime :: TetrixBoard -> Float
+timeoutTime :: TetrixBoard s -> Float
 timeoutTime board = 120 / (1 + fromIntegral n)
     where MkLevel n = _level board
 
@@ -200,119 +214,171 @@ squareWidth  = windowWidth / boardWidth
 squareHeight :: Float
 squareHeight = windowHeight / boardHeight
 
-setNextPieceLabel :: TetrixBoard -> Picture -> TetrixBoard
+setNextPieceLabel :: TetrixBoard s -> Picture -> TetrixBoard s
 setNextPieceLabel board label = board { _nextPieceLabel = Just label}
 
-clearBoard :: TetrixBoard -> TetrixBoard
+clearBoard :: TetrixBoard s -> TetrixBoard s
 clearBoard board = board { _board = [NoShape | _ <- [0..(boardHeight * boardWidth)]]}
 
-start :: TetrixBoard -> TetrixBoard
-start board = finalBoard
+start :: TetrixBoard 'Created -> SomeTetrixBoard
+start board =
+    case newPiece boardRunning of
+        SomeTetrixBoard witness b -> SomeTetrixBoard witness (applyStartTimer b)
     where
-        finalBoard = 
-            if isPaused board
-                then board
-                else board3 
-                    where
-                        board0 = board {
-                            _state = Running,
-                            _isWaitingAfterLine = False,
-                            _numLinesRemoved = 0,
-                            _numPiecesDropped = 0,
-                            _score = 0,
-                            _level = 1
-                        }
-                        board1 = clearBoard board0
-                        board2 = newPiece board1
-                        timer = _timer board2
-                        board3 = board2 { 
-                            _timer = timer { _actual = 0, _final = timeoutTime board2}
-                        }
+        board0 = board {
+            _isWaitingAfterLine = False,
+            _numLinesRemoved = 0,
+            _numPiecesDropped = 0,
+            _score = 0,
+            _level = 1
+        }
+        board1 = clearBoard board0
+        boardRunning = retagBoard board1
+
+        applyStartTimer :: TetrixBoard s' -> TetrixBoard s'
+        applyStartTimer b = b { _timer = timer { _actual = 0, _final = timeoutTime b } }
+            where timer = _timer b
+    
+    -- where
+    --     finalBoard = 
+    --         if isPaused board
+    --             then board
+    --             else board3 
+    --                 where
+    --                     board0 = board {
+    --                         -- _state = Running,
+    --                         _isWaitingAfterLine = False,
+    --                         _numLinesRemoved = 0,
+    --                         _numPiecesDropped = 0,
+    --                         _score = 0,
+    --                         _level = 1
+    --                     }
+    --                     board1 = clearBoard board0
+    --                     board2 = newPiece board1
+    --                     timer = _timer board2
+    --                     board3 = board2 { 
+    --                         _timer = timer { _actual = 0, _final = timeoutTime board2}
+    --                     }
+
+pause :: TetrixBoard 'Running -> TetrixBoard 'Paused
+pause board = retagBoard board { _timer = timer { _isTimerCounting = False, _isTimerPaused = True } }
+    where timer = _timer board
+    -- where
+    --     finalBoard = 
+    --         if not (isStarted board)
+    --             then board
+    --             else board1
+    --             where
+    --                 timer = _timer board
+    --                 board1 = 
+    --                     if isPaused board
+    --                         then board {  _timer = timer { _isTimerPaused = False, _isTimerCounting = True, _final = timeoutTime board }}
+    --                         else board {  _timer = timer { _isTimerCounting = False, _isTimerPaused = True}}
+    --
+
+resume :: TetrixBoard 'Paused -> TetrixBoard 'Running
+resume board = retagBoard board { _timer = timer { _isTimerPaused = False, _isTimerCounting = True, _final = timeoutTime board } }
+    where timer = _timer board
+
+keyPressEvent :: Event -> SomeTetrixBoard -> SomeTetrixBoard
+keyPressEvent (EventKey key Down _ _) (SomeTetrixBoard witness board) =
+    case witness of
+        SCreated ->
+            case key of
+                Char 's' -> start board
+                _        -> SomeTetrixBoard SCreated board
+        SRunning ->
+            case key of
+                SpecialKey KeyLeft  -> asRunning $ fst $ tryMove board (_curPiece board) (_curX board - 1) (_curY board)
+                SpecialKey KeyRight -> asRunning $ fst $ tryMove board (_curPiece board) (_curX board + 1) (_curY board)
+                SpecialKey KeyUp    -> asRunning $ fst $ tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
+                SpecialKey KeyDown  -> asRunning $ fst $ tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
+                SpecialKey KeySpace -> dropDown board
+                Char 'd'            -> oneLineDown board
+                Char 'p'            -> asPaused $ pause board
+                _                   -> asRunning board
+                    
+            where
+                asRunning = SomeTetrixBoard SRunning
+                asPaused  = SomeTetrixBoard SPaused
+                
+        SPaused ->
+            case key of
+                Char 'p' -> SomeTetrixBoard SRunning (resume board)
+                _        -> SomeTetrixBoard SPaused board
+
+        SGameOver ->
+            case key of
+                Char 's' -> start $ resetBoard board
+                _        -> SomeTetrixBoard SGameOver board
+
+keyPressEvent _ someBoard = someBoard
+
+--     where
+--         (finalBoard, _) = 
+--             case (_state board) of
+--                 Created -> 
+--                     case key of 
+--                         Char 's' -> (start board, False)
+--                         _        -> (board, False)
+--                 Running ->
+--                     case key of
+--                         SpecialKey KeyLeft  -> tryMove board (_curPiece board) (_curX board - 1) (_curY board)
+--                         SpecialKey KeyRight -> tryMove board (_curPiece board) (_curX board + 1) (_curY board)
+--                         SpecialKey KeyUp    -> tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
+--                         SpecialKey KeyDown  -> tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
+--                         SpecialKey KeySpace -> (dropDown board, False)
+--                         Char 'd'            -> (oneLineDown board, False)
+--                         Char 'p'            -> (pause board, False)
+--                         _                   -> (board, False)
+--
+--                 Paused ->
+--                     case key of
+--                         Char 'p'            -> (pause board, False)
+--                         _                   -> (board, False)
+--
+--                 GameOver ->
+--                     case key of
+--                         Char 's'            -> (start (resetBoard board), False)
+--                         _                   -> (board, False)
+--
+--
+-- keyPressEvent _ board                       = board
+--
+--
+overlayFor :: SGameState s -> TetrixBoard s -> Maybe Picture
+overlayFor SCreated board = Just (Pictures [
+        color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
+        translate 0 50 $ scale 2 2 $ _startGameLabel board
+    ])
+overlayFor SRunning _ = Nothing
+overlayFor SPaused board = Just (Pictures [
+        color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
+        scale 2 2 $ _pausedLabel board
+    ])
+overlayFor SGameOver board = Just (Pictures [
+        color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
+        translate 0 50 $ scale 2 2 $ _gameOverLabel board
+    ])
+
+paintEvent :: SomeTetrixBoard -> Picture
+paintEvent (SomeTetrixBoard witness board) =
+    case overlayFor witness board of
+        Just overlay -> Pictures [renderBoard board, overlay]
+        Nothing      -> renderBoard board
 
 
-
-pause :: TetrixBoard -> TetrixBoard
-pause board = finalBoard
-    where
-        finalBoard = 
-            if not (isStarted board)
-                then board
-                else board1
-                where
-                    timer = _timer board
-                    board1 = 
-                        if isPaused board
-                            then board {  _state = Running, _timer = timer { _isTimerPaused = False, _isTimerCounting = True, _final = timeoutTime board }}
-                            else board {  _state = Paused, _timer = timer { _isTimerCounting = False, _isTimerPaused = True}}
-
-keyPressEvent :: Event -> TetrixBoard -> TetrixBoard
-keyPressEvent (EventKey key Down _ _) board = finalBoard
-    where
-        (finalBoard, _) = 
-            case (_state board) of
-                Created -> 
-                    case key of 
-                        Char 's' -> (start board, False)
-                        _        -> (board, False)
-                Running ->
-                    case key of
-                        SpecialKey KeyLeft  -> tryMove board (_curPiece board) (_curX board - 1) (_curY board)
-                        SpecialKey KeyRight -> tryMove board (_curPiece board) (_curX board + 1) (_curY board)
-                        SpecialKey KeyUp    -> tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
-                        SpecialKey KeyDown  -> tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
-                        SpecialKey KeySpace -> (dropDown board, False)
-                        Char 'd'            -> (oneLineDown board, False)
-                        Char 'p'            -> (pause board, False)
-                        _                   -> (board, False)
-
-                Paused ->
-                    case key of
-                        Char 'p'            -> (pause board, False)
-                        _                   -> (board, False)
-
-                GameOver ->
-                    case key of
-                        Char 's'            -> (start (resetBoard board), False)
-                        _                   -> (board, False)
-
-
-keyPressEvent _ board                       = board
-        
-
-paintEvent :: TetrixBoard -> Picture
-paintEvent board = Pictures [finalPicture]
+renderBoard :: TetrixBoard s -> Picture
+renderBoard board = finalDraw
     where
         left   = -(windowWidth / 2)
         bottom = -(windowHeight / 2)
 
         initialPicture =  rectangleSolid windowWidth windowHeight
-        pausedOverflow = Pictures [
-                color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
-                scale 2 2 $ _pausedLabel board
-            ]
-
-        gameOverOverflow = Pictures [
-                color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
-                translate 0 50 $ scale 2 2 $ _gameOverLabel board
-            ]
-
-        startNewGameOverflow = Pictures [
-                color (makeColorI 0 0 0 150) $ rectangleSolid windowWidth windowHeight,
-                translate 0 50 $ scale 2 2 $ _startGameLabel board
-            ]
-
-        finalPicture = 
-            case (_state board) of
-                Created  -> Pictures [finalDraw, startNewGameOverflow]
-                Paused   -> Pictures [finalDraw, pausedOverflow]
-                GameOver -> Pictures [finalDraw, gameOverOverflow]
-                _        -> finalDraw
-
-            where 
-                finalDraw = 
-                    if (_shape $ _curPiece board) /= NoShape
-                        then Pictures [initialPicture, drawPictures rowList, drawCurPiece [0..3]]
-                        else Pictures [initialPicture, drawPictures rowList]
+        finalDraw = 
+            if (_shape $ _curPiece board) /= NoShape
+                then Pictures [initialPicture, drawPictures rowList, drawCurPiece [0..3]]
+                else Pictures [initialPicture, drawPictures rowList]
 
         columnList :: [Int]
         columnList = [0..round boardWidth - 1]
@@ -351,29 +417,41 @@ paintEvent board = Pictures [finalPicture]
                         -- actualShape = ZShape
 
 
-timerEvent :: TetrixBoard -> TetrixBoard
-timerEvent board = finalBoard
+advanceTimer :: SomeTetrixBoard -> SomeTetrixBoard
+advanceTimer (SomeTetrixBoard SRunning board) =
+    if _actual timer1 >= _final timer1
+        then timerEvent (board { _timer = timer1 { _actual = 0 } })
+        else SomeTetrixBoard SRunning (board { _timer = timer1 })
     where
-        finalBoard = 
-            if _isWaitingAfterLine board
-                then board2
-                else oneLineDown board
-                where
-                    board0 = board { _isWaitingAfterLine = False }
-                    board1 = newPiece board0
-                    timer = _timer board1
-                    timer0 = startTimer timer
-                    timer1 = setTimerFinal timer0 (timeoutTime board1)
-                    board2 = board1 { _timer = timer1 }
+        timer0 = _timer board
+        timer1 = timer0 { _actual = _actual timer0 + 1}
+advanceTimer someBoard = someBoard
 
+timerEvent :: TetrixBoard 'Running -> SomeTetrixBoard
+timerEvent board =
+    if _isWaitingAfterLine board
+        then case newPiece board0 of
+            SomeTetrixBoard witness b -> SomeTetrixBoard witness (restartTimer b)
+        else oneLineDown board
+    where
+        board0 = board { _isWaitingAfterLine = False }
 
-dropDown :: TetrixBoard -> TetrixBoard
-dropDown board = finalBoard 
+        restartTimer :: TetrixBoard s' -> TetrixBoard s'
+        restartTimer b = b { _timer = setTimerFinal (startTimer (_timer b)) (timeoutTime b)}
+
+        -- board1 = newPiece board0
+        -- timer = _timer board1
+        -- timer0 = startTimer timer
+        -- timer1 = setTimerFinal timer0 (timeoutTime board1)
+        -- board2 = board1 { _timer = timer1 }
+
+dropDown :: TetrixBoard 'Running -> SomeTetrixBoard
+dropDown board = pieceDropped board1 finalDropHeight 
     where
         dropHeight = 0
         newY = _curY board
 
-        incDropHeight :: TetrixBoard -> Y -> Int -> (TetrixBoard, Int)
+        incDropHeight :: TetrixBoard 'Running -> Y -> Int -> (TetrixBoard 'Running, Int)
         incDropHeight b 0 dh  = (b, dh)
         incDropHeight b ny dh = 
             if canMove
@@ -383,22 +461,20 @@ dropDown board = finalBoard
                     (board0, canMove) = tryMove b (_curPiece board) (_curX board) (ny - 1)
 
         (board1, finalDropHeight) = incDropHeight board newY dropHeight
-        finalBoard = pieceDropped board1 finalDropHeight
 
-
-oneLineDown :: TetrixBoard -> TetrixBoard
+oneLineDown :: TetrixBoard 'Running -> SomeTetrixBoard
 oneLineDown board = finalBoard
     where
         (board0, moved) = tryMove board (_curPiece board) (_curX board) ((_curY board) - 1)
         finalBoard = 
             if not moved
                 then pieceDropped board0 0
-                else board0
+                else SomeTetrixBoard SRunning board0
 
-pieceDropped :: TetrixBoard -> Int -> TetrixBoard
+pieceDropped :: TetrixBoard 'Running -> Int -> SomeTetrixBoard
 pieceDropped board dropHeight = finalBoard
     where
-        processDrop :: TetrixBoard -> [Int] -> TetrixBoard
+        processDrop :: TetrixBoard 'Running -> [Int] -> TetrixBoard 'Running
         processDrop tb []               = tb
         processDrop tb (square:squares) = processDrop ntb squares
             where
@@ -427,9 +503,9 @@ pieceDropped board dropHeight = finalBoard
         finalBoard = 
             if not (_isWaitingAfterLine board4)
                 then newPiece board4
-                else board4
+                else SomeTetrixBoard SRunning board4
 
-removeFullLines :: TetrixBoard -> TetrixBoard
+removeFullLines :: TetrixBoard s -> TetrixBoard s
 removeFullLines board = finalBoard
     where
         finalBoard = 
@@ -452,7 +528,7 @@ removeFullLines board = finalBoard
 
         (b, nfl) = processRows board 0 rowList
 
-        processRows :: TetrixBoard -> Int -> [Int] -> (TetrixBoard, Int)
+        processRows :: TetrixBoard s -> Int -> [Int] -> (TetrixBoard s, Int)
         processRows tb numFullLines []         = (tb, numFullLines)
         processRows tb numFullLines (row:rows) = processRows newBoard newFullLines rows
             where
@@ -475,17 +551,17 @@ removeFullLines board = finalBoard
                         then clearRow (updateRows tb [row..round boardHeight - 2]) (round boardHeight - 1) columnList 
                         else tb
 
-                clearRow :: TetrixBoard -> Int -> [Int] -> TetrixBoard
+                clearRow :: TetrixBoard s -> Int -> [Int] -> TetrixBoard s
                 clearRow board1 _ [] = board1
                 clearRow board1 yCoord (xCoord:xs) = clearRow nextBoard yCoord xs
                     where
                         nextBoard = setShapeAt board1 (MkX xCoord) (MkY yCoord) NoShape
 
-                updateRows :: TetrixBoard -> [Int] -> TetrixBoard
+                updateRows :: TetrixBoard s -> [Int] -> TetrixBoard s
                 updateRows b0 []     = b0
                 updateRows b0 (r:rs) = updateRows (updateRow b0 r columnList) rs 
 
-                updateRow :: TetrixBoard -> Int -> [Int] -> TetrixBoard
+                updateRow :: TetrixBoard s -> Int -> [Int] -> TetrixBoard s
                 updateRow board1 _ [] = board1
                 updateRow board1 yCoord (xCoord:xs) = updateRow nextBoard yCoord xs 
                     where
@@ -493,7 +569,7 @@ removeFullLines board = finalBoard
                             where
                                 upperShape = shapeAt board1 (MkX xCoord) (MkY (yCoord + 1))
 
-newPiece :: TetrixBoard -> TetrixBoard
+newPiece :: TetrixBoard 'Running -> SomeTetrixBoard
 newPiece board = board4
     where
         (nextPiece, newGen) = setRandomShape (_nextPiece board) (_stdGen board)
@@ -508,27 +584,27 @@ newPiece board = board4
         }
         board4 = 
             if not (snd (tryMove board3 (_curPiece board3) (_curX board3) (_curY board3)))
-                then board3 {
+                then SomeTetrixBoard SGameOver (retagBoard board3 {
                     _curPiece = setShape (_curPiece board3) NoShape,
-                    _timer = stopTimer (_timer board3),
-                    _state = GameOver
-                }
-                else board3 {
+                    _timer = stopTimer (_timer board3)
+                    -- _state = GameOver
+                })
+                else SomeTetrixBoard SRunning (board3 {
                     _nextPiece = nextPiece
-                }
+                })
 
-showNextPiece :: TetrixBoard -> TetrixBoard
+showNextPiece :: TetrixBoard s -> TetrixBoard s
 showNextPiece board = 
     case _nextPieceLabel board of
-        Just _ -> board
+        Just _  -> board
         Nothing -> board { _nextPieceLabel = Just (Pictures squares)}
     where
-        dx = maxX nextPiece - minX nextPiece
-        dy = maxY nextPiece - minY nextPiece
+        -- dx = maxX nextPiece - minX nextPiece
+        -- dy = maxY nextPiece - minY nextPiece
         nextPiece = _nextPiece board
         squares = [drawSquare (x nextPiece i) (y nextPiece i) (_shape nextPiece) | i <- [0..3]]
 
-tryMove :: TetrixBoard -> TetrixPiece -> X -> Y -> (TetrixBoard, Bool)
+tryMove :: TetrixBoard s -> TetrixPiece -> X -> Y -> (TetrixBoard s, Bool)
 tryMove board curPiece newX newY = (finalBoard, isValidNextPos) 
     where
         validateNextPos _ _ _ _ []         = True 
@@ -542,7 +618,6 @@ tryMove board curPiece newX newY = (finalBoard, isValidNextPos)
 
                     getX squareX = x0 + MkX (x cp squareX)
                     getY squareY = y0 + MkY (y cp squareY)
-
 
         isValidNextPos = validateNextPos board curPiece newX newY [0..3]
         finalBoard = 
