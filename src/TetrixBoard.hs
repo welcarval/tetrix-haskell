@@ -60,37 +60,22 @@ data SGameState (s :: GameState) where
 data SomeTetrixBoard where
     SomeTetrixBoard :: SGameState s -> TetrixBoard s -> SomeTetrixBoard
 
--- isStarted :: TetrixBoard -> Bool
--- isStarted board = _state board == Running || _state board == Paused
---
--- isPaused :: TetrixBoard -> Bool
--- isPaused board = _state board == Paused
+newtype Score = Score Int deriving (Eq, Ord, Num, Show)
 
-newtype Score = MkScore Int deriving (Eq, Ord, Num)
+newtype Level = Level Int deriving (Eq, Ord, Num, Show)
 
-newtype Level = MkLevel Int deriving (Eq, Ord, Num)
+newtype X = X Int deriving (Eq, Ord, Num, Show)
 
-newtype X = MkX Int deriving (Eq, Ord, Num)
+newtype Y = Y Int deriving (Eq, Ord, Num, Show)
 
-newtype Y = MkY Int deriving (Eq, Ord, Num)
+class Unwrap a where
+    toInt :: a -> Int
 
-instance Show Score where
-    show (MkScore n) = show n 
+instance Unwrap X where
+    toInt (X n) = n
 
-instance Show Level where
-    show (MkLevel n) = show n 
-
-instance Show X where
-    show (MkX n) = show n 
-
-instance Show Y where
-    show (MkY n) = show n 
-
-unX :: X -> Int
-unX (MkX n) = n
-
-unY :: Y -> Int
-unY (MkY n) = n
+instance Unwrap Y where
+    toInt (Y n) = n
 
 data Timer = Timer {
     _final ::  Float,
@@ -117,7 +102,6 @@ setTimerFinal :: Timer -> Float -> Timer
 setTimerFinal timer time = timer { _final = time }
 
 data TetrixBoard (s :: GameState) = TetrixBoard {
-    -- _state :: GameState,
     _gameOverLabel :: Picture,
     _startGameLabel :: Picture,
     _pausedLabel :: Picture,
@@ -192,10 +176,10 @@ resetBoard board = retagBoard board {
         (piece, newGen) = setRandomShape createPiece (_stdGen board)
 
 shapeAt :: TetrixBoard s -> X -> Y -> Shape
-shapeAt board (MkX xCoord) (MkY yCoord) = _board board !! (yCoord * round boardWidth + xCoord)
+shapeAt board (X xCoord) (Y yCoord) = _board board !! (yCoord * round boardWidth + xCoord)
 
 setShapeAt :: TetrixBoard s -> X -> Y -> Shape -> TetrixBoard s
-setShapeAt board (MkX xCoord) (MkY yCoord) shape = board { _board = newBoard }
+setShapeAt board (X xCoord) (Y yCoord) shape = board { _board = newBoard }
     where
         targetIndex = (yCoord * round boardWidth) + xCoord
         newBoard = [
@@ -206,7 +190,7 @@ setShapeAt board (MkX xCoord) (MkY yCoord) shape = board { _board = newBoard }
 
 timeoutTime :: TetrixBoard s -> Float
 timeoutTime board = 120 / (1 + fromIntegral n)
-    where MkLevel n = _level board
+    where Level n = _level board
 
 squareWidth :: Float
 squareWidth  = windowWidth / boardWidth
@@ -399,7 +383,7 @@ renderBoard board = finalDraw
                                 where
                                     xCoord = left + fromIntegral column * squareWidth
                                     yCoord = bottom + fromIntegral row * squareHeight
-                                    actualShape = shapeAt board (MkX column) (MkY row) 
+                                    actualShape = shapeAt board (X column) (Y row) 
 
         drawCurPiece :: [Int] -> Picture
         drawCurPiece []     = blank
@@ -407,12 +391,12 @@ renderBoard board = finalDraw
             where
                 newP = drawSquare (round xCoord) (round yCoord) actualShape
                     where
-                        curX = _curX board + MkX (x (_curPiece board) b)
-                        curY = _curY board + MkY (y (_curPiece board) b)
+                        curX = _curX board + X (x (_curPiece board) b)
+                        curY = _curY board + Y (y (_curPiece board) b)
 
-                        xCoord = left + (fromIntegral (unX curX) * squareWidth)
+                        xCoord = left + (fromIntegral (toInt curX) * squareWidth)
                         -- yCoord = bottom + (boardHeight - fromIntegral curY - 1) * squareHeight
-                        yCoord = bottom + (fromIntegral (unY curY) * squareHeight)
+                        yCoord = bottom + (fromIntegral (toInt curY) * squareHeight)
                         actualShape = _shape $ _curPiece board
                         -- actualShape = ZShape
 
@@ -478,8 +462,8 @@ pieceDropped board dropHeight = finalBoard
         processDrop tb []               = tb
         processDrop tb (square:squares) = processDrop ntb squares
             where
-                xCoord = _curX tb + MkX (x (_curPiece tb) square)
-                yCoord = _curY tb + MkY (y (_curPiece tb) square)
+                xCoord = _curX tb + X (x (_curPiece tb) square)
+                yCoord = _curY tb + Y (y (_curPiece tb) square)
                 ntb = setShapeAt tb xCoord yCoord (_shape (_curPiece tb))
 
         board0 = processDrop board [0..3]
@@ -495,7 +479,7 @@ pieceDropped board dropHeight = finalBoard
                 }
                 else board1
         board3 = board2 {
-            _score = _score board2 + MkScore dropHeight + 7
+            _score = _score board2 + Score dropHeight + 7
             -- TODO emit score changed
         }
 
@@ -512,7 +496,7 @@ removeFullLines board = finalBoard
             if nfl > 0
                 then b {
                     _numLinesRemoved = _numLinesRemoved b + nfl,
-                    _score = _score b + 10 * MkScore nfl,
+                    _score = _score b + 10 * Score nfl,
                     -- _timer = (_timer b) { _final = 60, _actual = 0 },
                     _isWaitingAfterLine = True,
                     _curPiece = setShape (_curPiece b) NoShape
@@ -537,7 +521,7 @@ removeFullLines board = finalBoard
                 isRowFull yCoord (xCoord:xs) =
                     if actualShape == NoShape then False else isRowFull yCoord xs 
                         where
-                            actualShape = shapeAt tb (MkX xCoord) (MkY yCoord)
+                            actualShape = shapeAt tb (X xCoord) (Y yCoord)
 
                 rowIsFull = isRowFull row columnList
 
@@ -555,7 +539,7 @@ removeFullLines board = finalBoard
                 clearRow board1 _ [] = board1
                 clearRow board1 yCoord (xCoord:xs) = clearRow nextBoard yCoord xs
                     where
-                        nextBoard = setShapeAt board1 (MkX xCoord) (MkY yCoord) NoShape
+                        nextBoard = setShapeAt board1 (X xCoord) (Y yCoord) NoShape
 
                 updateRows :: TetrixBoard s -> [Int] -> TetrixBoard s
                 updateRows b0 []     = b0
@@ -565,9 +549,9 @@ removeFullLines board = finalBoard
                 updateRow board1 _ [] = board1
                 updateRow board1 yCoord (xCoord:xs) = updateRow nextBoard yCoord xs 
                     where
-                        nextBoard = setShapeAt board1 (MkX xCoord) (MkY yCoord) upperShape 
+                        nextBoard = setShapeAt board1 (X xCoord) (Y yCoord) upperShape 
                             where
-                                upperShape = shapeAt board1 (MkX xCoord) (MkY (yCoord + 1))
+                                upperShape = shapeAt board1 (X xCoord) (Y (yCoord + 1))
 
 newPiece :: TetrixBoard 'Running -> SomeTetrixBoard
 newPiece board = board4
@@ -579,8 +563,8 @@ newPiece board = board4
         }
         board2 = showNextPiece board1
         board3 = board2 {
-            _curX = MkX (truncate (boardWidth / 2) - 1),
-            _curY = MkY (round boardHeight - 1 - maxY (_curPiece board2))
+            _curX = X (truncate (boardWidth / 2) - 1),
+            _curY = Y (round boardHeight - 1 - maxY (_curPiece board2))
         }
         board4 = 
             if not (snd (tryMove board3 (_curPiece board3) (_curX board3) (_curY board3)))
@@ -613,11 +597,11 @@ tryMove board curPiece newX newY = (finalBoard, isValidNextPos)
                 then False
                 else validateNextPos b0 cp x0 y0 is
                 where
-                    isOutOfBonds = getX i < 0 || getX i >= MkX (round boardWidth) || getY i < 0 || getY i >= MkY (round boardHeight) 
+                    isOutOfBonds = getX i < 0 || getX i >= X (round boardWidth) || getY i < 0 || getY i >= Y (round boardHeight) 
                     destinyHasShape = shapeAt b0 (getX i) (getY i) /= NoShape
 
-                    getX squareX = x0 + MkX (x cp squareX)
-                    getY squareY = y0 + MkY (y cp squareY)
+                    getX squareX = x0 + X (x cp squareX)
+                    getY squareY = y0 + Y (y cp squareY)
 
         isValidNextPos = validateNextPos board curPiece newX newY [0..3]
         finalBoard = 
