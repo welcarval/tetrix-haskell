@@ -8,6 +8,7 @@ module TetrixBoard (
     TetrixBoard,
     SomeTetrixBoard (SomeTetrixBoard),
     SGameState (SCreated, SRunning, SPaused, SGameOver),
+    BoardLabels (..),
     createBoard,
     paintEvent,
     keyPressEvent,
@@ -125,13 +126,19 @@ data TetrixBoard (s :: GameState) = TetrixBoard {
 retagBoard :: TetrixBoard s -> TetrixBoard s'
 retagBoard TetrixBoard{..} = TetrixBoard{..}
 
-createBoard :: StdGen -> Picture -> Picture -> Picture -> TetrixBoard 'Created
-createBoard gen gameOverLabel pausedLabel startGameLabel = TetrixBoard {
+data BoardLabels = BoardLabels {
+    _overlayGameOver  :: Picture,
+    _overlayPaused    :: Picture,
+    _overlayStartGame :: Picture
+}
+
+createBoard :: StdGen -> BoardLabels -> TetrixBoard 'Created
+createBoard gen labels = TetrixBoard {
     _timer = createTimer,
     _nextPieceLabel = Nothing,
-    _gameOverLabel = gameOverLabel,
-    _startGameLabel = startGameLabel,
-    _pausedLabel = pausedLabel,
+    _gameOverLabel = _overlayGameOver labels,
+    _startGameLabel = _overlayStartGame labels,
+    _pausedLabel = _overlayPaused labels,
     _isWaitingAfterLine = False,
     _curPiece = createPiece,
     _nextPiece = piece,

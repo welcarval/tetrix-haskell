@@ -42,7 +42,7 @@ data TetrixWindow = TetrixWindow {
 createWindow :: StdGen -> Assets -> TetrixWindow
 createWindow g assets =
     TetrixWindow {
-        _board        = SomeTetrixBoard SCreated $ createBoard g (_gameOverAsset assets) (_pausedAsset assets) (_startGameAsset assets),
+        _board        = SomeTetrixBoard SCreated $ createBoard g boardLabels,
         _nextPieceL   = _nextPieceAsset assets,
         _levelLabel   = _levelAsset assets,
         _scoreLabel   = _scoreAsset assets,
@@ -54,7 +54,12 @@ createWindow g assets =
         _quitButton   = text "quit",
         _pauseButton  = text "pause",
         _stdGen       = g
-}
+    }
+    where boardLabels = BoardLabels {
+            _overlayStartGame = _startGameAsset assets, 
+            _overlayPaused    = _pausedAsset assets, 
+            _overlayGameOver  = _gameOverAsset assets
+        }
 
 paintWindow :: TetrixWindow -> Picture
 paintWindow window = paintBoard window (_board window)
