@@ -23,11 +23,11 @@ module TetrixBoard (
 )
 where
 
-import Graphics.Gloss
-import Graphics.Gloss.Interface.Pure.Game
-import System.Random
-import TetrixPiece
-import Data.Maybe (fromMaybe)
+import           Data.Maybe                         (fromMaybe)
+import           Graphics.Gloss
+import           Graphics.Gloss.Interface.Pure.Game
+import           System.Random
+import           TetrixPiece
 
 boardWidth :: Float
 boardWidth = 10
@@ -81,24 +81,17 @@ instance Unwrap Y where
 
 data Timer = Timer {
     _final           ::  Float,
-    _actual          :: Float,
-    _isTimerPaused   :: Bool,
-    _isTimerCounting :: Bool
+    _actual          :: Float
 }
 
 createTimer :: Timer
 createTimer = Timer {
     _final = 60,
-    _actual = 0,
-    _isTimerPaused = True,
-    _isTimerCounting = False
+    _actual = 0
 }
 
-startTimer :: Timer -> Timer
-startTimer timer = timer { _actual = 0, _isTimerPaused = False, _isTimerCounting = True }
-
-stopTimer :: Timer -> Timer
-stopTimer timer = timer { _actual = 0, _isTimerPaused = True, _isTimerCounting = False}
+resetTimer :: Timer -> Timer
+resetTimer timer = timer { _actual = 0 }
 
 setTimerFinal :: Timer -> Float -> Timer
 setTimerFinal timer time = timer { _final = time }
@@ -221,11 +214,10 @@ start board =
             where timer = _timer b
 
 pause :: TetrixBoard 'Running -> TetrixBoard 'Paused
-pause board = retagBoard board { _timer = timer { _isTimerCounting = False, _isTimerPaused = True } }
-    where timer = _timer board
+pause board = retagBoard board 
 
 resume :: TetrixBoard 'Paused -> TetrixBoard 'Running
-resume board = retagBoard board { _timer = timer { _isTimerPaused = False, _isTimerCounting = True, _final = timeoutTime board } }
+resume board = retagBoard board { _timer = timer { _final = timeoutTime board } }
     where timer = _timer board
 
 keyPressEvent :: Event -> SomeTetrixBoard -> SomeTetrixBoard
@@ -350,7 +342,7 @@ timerEvent board =
         board0 = board { _isWaitingAfterLine = False }
 
         restartTimer :: TetrixBoard s' -> TetrixBoard s'
-        restartTimer b = b { _timer = setTimerFinal (startTimer (_timer b)) (timeoutTime b)}
+        restartTimer b = b { _timer = setTimerFinal (resetTimer (_timer b)) (timeoutTime b)}
 
 dropDown :: TetrixBoard 'Running -> SomeTetrixBoard
 dropDown board = pieceDropped board1 finalDropHeight
@@ -368,7 +360,7 @@ dropDown board = pieceDropped board1 finalDropHeight
         (board1, finalDropHeight) = incDropHeight board newY dropHeight
 
 oneLineDown :: TetrixBoard 'Running -> SomeTetrixBoard
-oneLineDown board = 
+oneLineDown board =
         case tryMove board (_curPiece board) (_curX board) ((_curY board) - 1) of
             Just board0 -> SomeTetrixBoard SRunning board0
             Nothing     -> pieceDropped board 0
@@ -392,7 +384,7 @@ pieceDropped board dropHeight = finalBoard
             if _numPiecesDropped board1 `mod` 25 == 0
                 then board1 {
                     _level = _level board1 + 1,
-                    _timer = startTimer (_timer board1)
+                    _timer = resetTimer (_timer board1)
                 }
                 else board1
         board3 = board2 {
@@ -485,7 +477,7 @@ newPiece board = board4
             case tryMove board3 (_curPiece board3) (_curX board3) (_curY board3) of
                 Nothing -> SomeTetrixBoard SGameOver (retagBoard board3 {
                     _curPiece = setShape (_curPiece board3) NoShape,
-                    _timer = stopTimer (_timer board3)
+                    _timer = resetTimer (_timer board3)
                 })
                 Just _ -> SomeTetrixBoard SRunning (board3 {
                     _nextPiece = nextPiece
@@ -501,7 +493,7 @@ showNextPiece board =
         squares = [drawSquare (x nextPiece i) (y nextPiece i) (_shape nextPiece) | i <- [0..3]]
 
 tryMove :: TetrixBoard s -> TetrixPiece -> X -> Y -> Maybe (TetrixBoard s)
-tryMove board curPiece newX newY = 
+tryMove board curPiece newX newY =
     if isValidNextPos
         then Just (board {
             _curPiece = curPiece,
