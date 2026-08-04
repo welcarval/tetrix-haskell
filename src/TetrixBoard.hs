@@ -26,6 +26,7 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
 import System.Random
 import TetrixPiece
+import Data.Maybe (fromMaybe)
 
 boardWidth :: Float
 boardWidth = 10
@@ -229,10 +230,10 @@ keyPressEvent (EventKey key Down _ _) (SomeTetrixBoard witness board) =
                 _        -> SomeTetrixBoard SCreated board
         SRunning ->
             case key of
-                SpecialKey KeyLeft  -> asRunning $ fst $ tryMove board (_curPiece board) (_curX board - 1) (_curY board)
-                SpecialKey KeyRight -> asRunning $ fst $ tryMove board (_curPiece board) (_curX board + 1) (_curY board)
-                SpecialKey KeyUp    -> asRunning $ fst $ tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
-                SpecialKey KeyDown  -> asRunning $ fst $ tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
+                SpecialKey KeyLeft  -> asRunning $ fromMaybe board $ tryMove board (_curPiece board) (_curX board - 1) (_curY board)
+                SpecialKey KeyRight -> asRunning $ fromMaybe board $ tryMove board (_curPiece board) (_curX board + 1) (_curY board)
+                SpecialKey KeyUp    -> asRunning $ fromMaybe board $ tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
+                SpecialKey KeyDown  -> asRunning $ fromMaybe board $ tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
                 SpecialKey KeySpace -> dropDown board
                 Char 'd'            -> oneLineDown board
                 Char 'p'            -> asPaused $ pause board
@@ -353,22 +354,17 @@ dropDown board = pieceDropped board1 finalDropHeight
         incDropHeight :: TetrixBoard 'Running -> Y -> Int -> (TetrixBoard 'Running, Int)
         incDropHeight b 0 dh  = (b, dh)
         incDropHeight b ny dh =
-            if canMove
-                then incDropHeight board0 (ny - 1) (dh + 1)
-                else (b, dh)
-                where
-                    (board0, canMove) = tryMove b (_curPiece board) (_curX board) (ny - 1)
+            case tryMove b (_curPiece board) (_curX board) (ny - 1) of
+                Just board0 -> incDropHeight board0 (ny - 1) (dh + 1)
+                Nothing     -> (b, dh)
 
         (board1, finalDropHeight) = incDropHeight board newY dropHeight
 
 oneLineDown :: TetrixBoard 'Running -> SomeTetrixBoard
-oneLineDown board = finalBoard
-    where
-        (board0, moved) = tryMove board (_curPiece board) (_curX board) ((_curY board) - 1)
-        finalBoard =
-            if not moved
-                then pieceDropped board0 0
-                else SomeTetrixBoard SRunning board0
+oneLineDown board = 
+        case tryMove board (_curPiece board) (_curX board) ((_curY board) - 1) of
+            Just board0 -> SomeTetrixBoard SRunning board0
+            Nothing     -> pieceDropped board 0
 
 pieceDropped :: TetrixBoard 'Running -> Int -> SomeTetrixBoard
 pieceDropped board dropHeight = finalBoard
@@ -475,16 +471,16 @@ newPiece board = board4
         }
         board2 = showNextPiece board1
         board3 = board2 {
-            _curX = X (truncate (boardWidth / 2) - 1),
-            _curY = Y (round boardHeight - 1 - maxY (_curPiece board2))
+            _curX = X $ truncate (boardWidth / 2) - 1,
+            _curY = Y $ round boardHeight - 1 - maxY (_curPiece board2)
         }
         board4 =
-            if not (snd (tryMove board3 (_curPiece board3) (_curX board3) (_curY board3)))
-                then SomeTetrixBoard SGameOver (retagBoard board3 {
+            case tryMove board3 (_curPiece board3) (_curX board3) (_curY board3) of
+                Nothing -> SomeTetrixBoard SGameOver (retagBoard board3 {
                     _curPiece = setShape (_curPiece board3) NoShape,
                     _timer = stopTimer (_timer board3)
                 })
-                else SomeTetrixBoard SRunning (board3 {
+                Just _ -> SomeTetrixBoard SRunning (board3 {
                     _nextPiece = nextPiece
                 })
 
@@ -497,8 +493,15 @@ showNextPiece board =
         nextPiece = _nextPiece board
         squares = [drawSquare (x nextPiece i) (y nextPiece i) (_shape nextPiece) | i <- [0..3]]
 
-tryMove :: TetrixBoard s -> TetrixPiece -> X -> Y -> (TetrixBoard s, Bool)
-tryMove board curPiece newX newY = (finalBoard, isValidNextPos)
+tryMove :: TetrixBoard s -> TetrixPiece -> X -> Y -> Maybe (TetrixBoard s)
+tryMove board curPiece newX newY = 
+    if isValidNextPos
+        then Just (board {
+            _curPiece = curPiece,
+            _curX     = newX,
+            _curY     = newY
+            })
+        else Nothing
     where
         validateNextPos _ _ _ _ []         = True
         validateNextPos b0 cp x0 y0 (i:is) =
@@ -513,14 +516,6 @@ tryMove board curPiece newX newY = (finalBoard, isValidNextPos)
                     getY squareY = y0 + Y (y cp squareY)
 
         isValidNextPos = validateNextPos board curPiece newX newY [0..3]
-        finalBoard =
-            if isValidNextPos
-                then board {
-                    _curPiece= curPiece,
-                    _curX = newX,
-                    _curY = newY
-                }
-                else board
 
 drawSquare :: Int -> Int -> Shape -> Picture
 drawSquare xCoord yCoord shape = pictures [outerSquare, centerSquare]
