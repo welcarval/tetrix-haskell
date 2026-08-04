@@ -14,6 +14,16 @@ windowHeight = 750
 windowDisplay :: Display
 windowDisplay = InWindow "Tetrix" (windowWidth, windowHeight) (800, 200)
 
+data Assets = Assets {
+    _gameOverAsset  :: Picture,
+    _nextPieceAsset :: Picture,
+    _levelAsset     :: Picture,
+    _scoreAsset     :: Picture,
+    _pausedAsset    :: Picture,
+    _controlsAsset  :: Picture,
+    _startGameAsset :: Picture
+}
+
 data TetrixWindow = TetrixWindow {
     _board        :: SomeTetrixBoard,
     _nextPieceL   :: Picture,
@@ -29,21 +39,21 @@ data TetrixWindow = TetrixWindow {
     _stdGen       :: StdGen
 }
 
-createWindow :: StdGen -> Picture -> Picture -> Picture -> Picture -> Picture -> Picture -> Picture -> TetrixWindow
-createWindow g gameOverLabel nextPieceL levelLabel scoreLabel pausedLabel controls startGameLabel =
+createWindow :: StdGen -> Assets -> TetrixWindow
+createWindow g assets =
     TetrixWindow {
-        _board = SomeTetrixBoard SCreated $ createBoard g gameOverLabel pausedLabel startGameLabel,
-        _nextPieceL = nextPieceL,
-        _levelLabel = levelLabel,
-        _scoreLabel = scoreLabel,
-        _controls = controls,
+        _board        = SomeTetrixBoard SCreated $ createBoard g (_gameOverAsset assets) (_pausedAsset assets) (_startGameAsset assets),
+        _nextPieceL   = _nextPieceAsset assets,
+        _levelLabel   = _levelAsset assets,
+        _scoreLabel   = _scoreAsset assets,
+        _controls     = _controlsAsset assets,
         _scoreDisplay = text "0",
         _levelDisplay = text "0",
         _linesDisplay = text "0",
-        _startButton = text "start",
-        _quitButton = text "quit",
-        _pauseButton = text "pause",
-        _stdGen = g
+        _startButton  = text "start",
+        _quitButton   = text "quit",
+        _pauseButton  = text "pause",
+        _stdGen       = g
 }
 
 paintWindow :: TetrixWindow -> Picture
@@ -103,16 +113,17 @@ main = do
     Just controlsPng  <- loadJuicyPNG "assets/controls.png"
     Just startGamePng <- loadJuicyPNG "assets/startgame.png"
 
-    let window =
-            createWindow
-                g
-                gameOverPng
-                nextPiecePng
-                levelPng
-                scorePng
-                pausedPng
-                controlsPng
-                startGamePng
+    let assets = Assets {
+            _gameOverAsset  = gameOverPng,
+            _nextPieceAsset = nextPiecePng,
+            _levelAsset     = levelPng,
+            _scoreAsset     = scorePng,
+            _pausedAsset    = pausedPng,
+            _controlsAsset  = controlsPng,
+            _startGameAsset = startGamePng
+        }
+        window = createWindow g assets
+
     play
         windowDisplay
         black
