@@ -62,9 +62,9 @@ data SGameState (s :: GameState) where
 data SomeTetrixBoard where
     SomeTetrixBoard :: SGameState s -> TetrixBoard s -> SomeTetrixBoard
 
-newtype Score = Score Int deriving (Eq, Ord, Num, Show)
+newtype Score = Score Int deriving (Eq, Ord, Num)
 
-newtype Level = Level Int deriving (Eq, Ord, Num, Show)
+newtype Level = Level Int deriving (Eq, Ord, Num)
 
 newtype X = X Int deriving (Eq, Ord, Num, Show)
 
@@ -78,6 +78,12 @@ instance Unwrap X where
 
 instance Unwrap Y where
     toInt (Y n) = n
+
+instance Show Score where
+    show (Score n) = show n
+
+instance Show Level where
+    show (Level n) = show n
 
 data Timer = Timer {
     _final           ::  Float,
@@ -228,15 +234,19 @@ keyPressEvent (EventKey key Down _ _) (SomeTetrixBoard witness board) =
                 Char 's' -> start board
                 _        -> SomeTetrixBoard SCreated board
         SRunning ->
-            case key of
-                SpecialKey KeyLeft  -> asRunning $ fromMaybe board $ tryMove board (_curPiece board) (_curX board - 1) (_curY board)
-                SpecialKey KeyRight -> asRunning $ fromMaybe board $ tryMove board (_curPiece board) (_curX board + 1) (_curY board)
-                SpecialKey KeyUp    -> asRunning $ fromMaybe board $ tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
-                SpecialKey KeyDown  -> asRunning $ fromMaybe board $ tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
-                SpecialKey KeySpace -> dropDown board
-                Char 'd'            -> oneLineDown board
-                Char 'p'            -> asPaused $ pause board
-                _                   -> asRunning board
+            if _isWaitingAfterLine board
+                then case key of
+                    Char 'p'            -> asPaused $ pause board
+                    _                   -> asRunning board
+                else case key of
+                    SpecialKey KeyLeft  -> asRunning $ fromMaybe board $ tryMove board (_curPiece board) (_curX board - 1) (_curY board)
+                    SpecialKey KeyRight -> asRunning $ fromMaybe board $ tryMove board (_curPiece board) (_curX board + 1) (_curY board)
+                    SpecialKey KeyUp    -> asRunning $ fromMaybe board $ tryMove board (rotateRight $ _curPiece board) (_curX board) (_curY board)
+                    SpecialKey KeyDown  -> asRunning $ fromMaybe board $ tryMove board (rotateLeft $ _curPiece board) (_curX board) (_curY board)
+                    SpecialKey KeySpace -> dropDown board
+                    Char 'd'            -> oneLineDown board
+                    Char 'p'            -> asPaused $ pause board
+                    _                   -> asRunning board
 
             where
                 asRunning = SomeTetrixBoard SRunning
