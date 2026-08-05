@@ -37,6 +37,17 @@ fromRepeatableKey RepeatLeft     = SpecialKey KeyLeft
 fromRepeatableKey RepeatRight    = SpecialKey KeyRight
 fromRepeatableKey RepeatSoftDrop = Char 'd'
 
+data KeyRepeatPhase = AwaitingFirstRepeat | Repeating deriving Eq
+
+data KeyRepeatState = KeyRepeatState {
+    _repeatKey     :: RepeatableKey,
+    _repeatPhase   :: KeyRepeatPhase,
+    _repeatElapsed :: Float
+}
+
+keyRepeatDelay :: Float
+keyRepeatDelay = 0.25
+
 keyRepeatInterval :: Float
 keyRepeatInterval = 0.05
 
@@ -52,7 +63,7 @@ data TetrixWindow = TetrixWindow {
     _startButton          :: Picture,
     _quitButton           :: Picture,
     _pauseButton          :: Picture,
-    _heldKey              :: Maybe RepeatableKey,
+    _heldKeyState         :: Maybe KeyRepeatState,
     _keyRepeatableElapsed :: Float,
     _stdGen               :: StdGen
 }
@@ -71,7 +82,7 @@ createWindow g assets =
         _startButton          = text "start",
         _quitButton           = text "quit",
         _pauseButton          = text "pause",
-        _heldKey              = Nothing,
+        _heldKeyState         = Nothing,
         _keyRepeatableElapsed = 0,
         _stdGen               = g
     }
@@ -124,18 +135,15 @@ handlerEvent :: Event -> TetrixWindow -> TetrixWindow
 handlerEvent e@(EventKey key Down _ _) window =
     window {
         _board = keyPressEvent e (_board window),
-        _heldKey = case toRepeatableKey key of
-            Just rk -> Just rk
-            Nothing -> _heldKey window,
-        _keyRepeatableElapsed = case toRepeatableKey key of
-            Just _  -> 0
-            Nothing -> _keyRepeatableElapsed window
+        _heldKeyState = case toRepeatableKey key of
+            Just rk -> Just (KeyRepeatState rk AwaitingFirstRepeat 0)
+            Nothing -> _heldKeyState window
     }
 handlerEvent (EventKey key Up _ _) window =
     window {
-        _heldKey = if toRepeatableKey key == _heldKey window
-            then Nothing
-            else _heldKey window
+        _heldKeyState = case _heldKeyState window of
+            Just krs | Just (_repeatKey krs) == toRepeatableKey key -> Nothing
+            other                                                   -> other
     }
 handlerEvent _ window = window
 
@@ -172,13 +180,22 @@ main = do
         step
 
 step :: Float -> TetrixWindow -> TetrixWindow
-step dt window = windowAfterTimer { _keyRepeatableElapsed = newElapsed, _board = newBoard }
+step dt window = windowAfterTimer { _heldKeyState = newHeldKey, _board = newBoard }
     where
         windowAfterTimer = window { _board = advanceTimer (_board window) }
-        elapsed = _keyRepeatableElapsed windowAfterTimer + dt
 
-        (newElapsed, newBoard) =
-            case _heldKey windowAfterTimer of
-                Just rk | elapsed >= keyRepeatInterval -> (0, keyPressEvent (repeatEvent rk) (_board windowAfterTimer))
-                _                                      -> (elapsed, _board windowAfterTimer)
+        (newHeldKey, newBoard) =
+            case _heldKeyState windowAfterTimer of
+                Nothing -> (Nothing, _board windowAfterTimer)
+                Just krs ->
+                    let elapsed = _repeatElapsed krs + dt
+                        threshold = case _repeatPhase krs of
+                            AwaitingFirstRepeat -> keyRepeatDelay
+                            Repeating           -> keyRepeatInterval
+                    in if elapsed >= threshold
+                        then (
+                            Just krs { _repeatPhase = Repeating, _repeatElapsed = 0 },
+                            keyPressEvent (repeatEvent (_repeatKey krs)) (_board windowAfterTimer)
+                        )
+                        else (Just krs { _repeatElapsed = elapsed }, _board windowAfterTimer)
         repeatEvent rk = EventKey (fromRepeatableKey rk) Down (Modifiers Up Up Up) (0, 0)
