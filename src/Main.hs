@@ -137,7 +137,7 @@ handlerEvent e@(EventKey key Down _ _) window =
     window {
         _board = keyPressEvent e (_board window),
         _heldKeys = case toRepeatableKey key of
-            Just rk -> KeyRepeatState rk AwaitingFirstRepeat 0 : dropKey rk (_heldKeys window)
+            Just rk -> KeyRepeatState rk AwaitingFirstRepeat 0 : dropConflicting rk (_heldKeys window)
             Nothing -> _heldKeys window
     }
 handlerEvent (EventKey key Up _ _) window =
@@ -150,6 +150,14 @@ handlerEvent _ window = window
 
 dropKey :: RepeatableKey -> [KeyRepeatState] -> [KeyRepeatState]
 dropKey rk = filter ((/= rk) . _repeatKey)
+
+conflictsWith :: RepeatableKey -> RepeatableKey -> Bool
+conflictsWith RepeatLeft RepeatRight = True
+conflictsWith RepeatRight RepeatLeft = True
+conflictsWith _ _                    = False
+
+dropConflicting :: RepeatableKey -> [KeyRepeatState] -> [KeyRepeatState]
+dropConflicting rk = filter (\krs -> _repeatKey krs /= rk && not (conflictsWith rk (_repeatKey krs)))
 
 main :: IO ()
 main = do
